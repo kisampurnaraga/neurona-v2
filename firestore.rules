@@ -36,25 +36,23 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
 
       // Anyone can register their own profile.
-      // Must enforce proper role/status based on email/default rules.
+      // Enforce proper role/status based on verified email from auth token.
       allow create: if isSignedIn() && request.auth.uid == userId 
         && incoming().namaLengkap is string && incoming().namaLengkap.size() <= 100
-        && incoming().email is string && incoming().email.size() <= 100
+        && incoming().email == request.auth.token.email
         && incoming().whatsapp is string && incoming().whatsapp.size() <= 20
         && incoming().whatsapp.matches('^[0-9]+$')
         && (
           // Standard user registration
           (incoming().role == 'user' && incoming().status == 'PENDING') ||
-          // Default admin registration auto-approval
-          ((incoming().email == 'ia.asep12@gmail.com' || incoming().email == 'admin@neuronan.com') && incoming().role == 'admin' && incoming().status == 'ACTIVE')
+          // Default admin registration auto-approval based on auth token
+          ((request.auth.token.email == 'ia.asep12@gmail.com' || request.auth.token.email == 'admin@neuronan.com') && incoming().role == 'admin' && incoming().status == 'ACTIVE')
         );
 
       // Users can update their own non-sensitive details; Admins can update any profile.
-      // Special: default admin users can self-repair/elevate their own profile to admin/active.
       allow update: if isSignedIn() && (
         isAdmin() || (
           request.auth.uid == userId && (
-            (
               incoming().role == existing().role
               && incoming().status == existing().status
               && incoming().email == existing().email
@@ -62,11 +60,6 @@ service cloud.firestore {
               && incoming().whatsapp is string && incoming().whatsapp.size() <= 20
               && incoming().whatsapp.matches('^[0-9]+$')
               && incoming().diff(existing()).affectedKeys().hasOnly(['namaLengkap', 'whatsapp'])
-            ) || (
-              (incoming().email == 'ia.asep12@gmail.com' || incoming().email == 'admin@neuronan.com')
-              && incoming().role == 'admin'
-              && incoming().status == 'ACTIVE'
-            )
           )
         )
       );

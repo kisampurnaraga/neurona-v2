@@ -357,7 +357,7 @@ export default function App() {
     }
   };
 
-  // Handle Admin Login (lazy-create if it's default admin 'ia.asep12@gmail.com' / '123456')
+  // Handle Admin Login
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim()) {
@@ -367,81 +367,24 @@ export default function App() {
 
     setAdminLoginLoading(true);
     try {
-      let userCred;
-      const isAdminEmail = loginEmail === 'ia.asep12@gmail.com' || loginEmail === 'admin@neuronan.com';
-      try {
-        userCred = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      } catch (signInErr: any) {
-        const isCreateCandidate = 
-          isAdminEmail && 
-          loginPassword === '123456';
-
-        const isUserNotFound = 
-          signInErr.code === 'auth/user-not-found' || 
-          signInErr.code === 'auth/invalid-credential' ||
-          signInErr.message?.includes('user-not-found') ||
-          signInErr.message?.includes('invalid-credential');
-
-        // Safe lazy-creation for the required default admin account
-        if (isCreateCandidate && isUserNotFound) {
-          userCred = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
-          await setDoc(doc(db, 'users', userCred.user.uid), {
-            namaLengkap: 'Admin Neuronan',
-            email: loginEmail,
-            whatsapp: '081234567890',
-            role: 'admin',
-            status: 'ACTIVE',
-            createdAt: new Date().toISOString()
-          });
-        } else {
-          throw signInErr;
-        }
-      }
-
+      const userCred = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       const uid = userCred.user.uid;
       const userDoc = await getDoc(doc(db, 'users', uid));
       
       if (userDoc.exists()) {
-        let profile = userDoc.data() as UserProfile;
+        const profile = userDoc.data() as UserProfile;
 
-        // Self-repair: If user logged in as admin email but role/status is wrong in DB, elevate them
-        if (isAdminEmail && (profile.role !== 'admin' || profile.status !== 'ACTIVE')) {
-          await updateDoc(doc(db, 'users', uid), {
-            role: 'admin',
-            status: 'ACTIVE'
-          });
-          profile = {
-            ...profile,
-            role: 'admin',
-            status: 'ACTIVE'
-          };
-        }
-
-        if (profile.role === 'admin') {
+        if (profile.role === 'admin' && profile.status === 'ACTIVE') {
           setUserProfile(profile);
           showToast('Berhasil masuk sebagai Admin!', 'success');
         } else {
-          showToast('Akses ditolak: Anda bukan administrator', 'error');
+          showToast('Akses ditolak: Anda bukan administrator aktif', 'error');
           await signOut(auth);
           setUserProfile(null);
         }
       } else {
-        // If auth user exists but Firestore profile is missing, let's create it on the fly!
-        if (isAdminEmail) {
-          const defaultAdminProfile: UserProfile = {
-            namaLengkap: 'Admin Neuronan',
-            email: loginEmail,
-            whatsapp: '081234567890',
-            role: 'admin',
-            status: 'ACTIVE',
-            createdAt: new Date().toISOString()
-          };
-          await setDoc(doc(db, 'users', uid), defaultAdminProfile);
-          setUserProfile(defaultAdminProfile);
-          showToast('Berhasil masuk sebagai Admin!', 'success');
-        } else {
-          showToast('Profil Admin tidak ditemukan', 'error');
-        }
+        showToast('Profil Admin tidak ditemukan', 'error');
+        await signOut(auth);
       }
     } catch (error: any) {
       const isAuthError = 
@@ -507,7 +450,7 @@ export default function App() {
       const res = await signInWithPopup(auth, provider);
       const user = res.user;
 
-      const isAdminEmail = user.email === 'ia.asep12@gmail.com' || user.email === 'admin@neurona.com';
+      const isAdminEmail = user.email === 'ia.asep12@gmail.com' || user.email === 'admin@neuronan.com';
 
       if (!isAdminEmail) {
         // Strict Security Guard: User biasa TIDAK BOLEH bypass pendaftaran & pembayaran via Google!
@@ -516,30 +459,16 @@ export default function App() {
         return;
       }
 
-      // Sync password to 123456 so admin can also use regular password login!
-      try {
-        await updatePassword(user, '123456');
-      } catch (err) {
-        // Ignore if recent auth limit prevents password change immediately
-      }
-
       // Check user in Firestore
       const userDocRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userDocRef);
 
       if (userSnap.exists()) {
-        let profile = userSnap.data() as UserProfile;
-        if (profile.role !== 'admin' || profile.status !== 'ACTIVE') {
-          await updateDoc(userDocRef, {
-            role: 'admin',
-            status: 'ACTIVE'
-          });
-          profile = { ...profile, role: 'admin', status: 'ACTIVE' };
-        }
+        const profile = userSnap.data() as UserProfile;
         setUserProfile(profile);
       } else {
         const adminProfile: UserProfile = {
-          namaLengkap: user.displayName || 'Admin Neurona',
+          namaLengkap: user.displayName || 'Admin Neuronan',
           email: user.email || '',
           whatsapp: '081234567890',
           role: 'admin',
@@ -564,7 +493,7 @@ export default function App() {
 
   // URLs for Studio Produksi Video AI
   const STUDIO_DIRECT_URL = 'https://gemini.google.com/share/d42de0a1535e?skid=6e76b041-a8e4-4c0b-ad4c-8906ac8cc8c6';
-  const STUDIO_SHORT_URL = 'https://share.gemini.google/bZOivLRIPMqR';
+  const STUDIO_SHORT_URL = 'https://share.gemini.google/rxUpHiJSGTCo';
 
   // Handler to safely open Studio Produksi
   const handleOpenStudio = (urlToOpen: string = STUDIO_DIRECT_URL) => {
@@ -1295,35 +1224,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Quick Fill Credentials Buttons */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Pilih Akun Admin:</p>
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('admin@neuronan.com');
-                        setLoginPassword('123456');
-                      }}
-                      className="text-left px-3 py-2 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-700 flex justify-between items-center transition-colors"
-                    >
-                      <span><strong>admin@neuronan.com</strong> (123456)</span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">Siap Pakai</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('ia.asep12@gmail.com');
-                        setLoginPassword('123456');
-                      }}
-                      className="text-left px-3 py-2 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-700 flex justify-between items-center transition-colors"
-                    >
-                      <span><strong>ia.asep12@gmail.com</strong> (123456)</span>
-                      <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">Utama</span>
-                    </button>
-                  </div>
-                </div>
-
                 <form onSubmit={handleAdminLogin} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-sm font-bold text-slate-700">Email Admin</label>
@@ -1765,7 +1665,7 @@ export default function App() {
                       <div className="mt-auto">
                         <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
                           <a 
-                            href="https://share.gemini.google/bZOivLRIPMqR" 
+                            href="https://share.gemini.google/rxUpHiJSGTCo" 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="px-6 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-[15px] rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 w-full"
@@ -1775,7 +1675,7 @@ export default function App() {
                           
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText('https://share.gemini.google/bZOivLRIPMqR');
+                              navigator.clipboard.writeText('https://share.gemini.google/rxUpHiJSGTCo');
                               showToast('Link berhasil disalin!', 'success');
                             }}
                             className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[15px] rounded-xl transition-all flex items-center justify-center gap-2 w-full"
