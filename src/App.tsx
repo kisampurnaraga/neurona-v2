@@ -904,7 +904,7 @@ export default function App() {
       
       {/* Dynamic Toast Notifications */}
       {toast && (
-        <div id="toast-notification" className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-xl border transition-all duration-300 transform scale-100 ${
+        <div id="toast-notification" className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-5 py-4 rounded-xl shadow-xl border transition-all duration-300 transform scale-100 ${
           toast.type === 'success' 
             ? 'bg-emerald-50 border-emerald-100 text-emerald-800' 
             : toast.type === 'info'
@@ -1825,7 +1825,7 @@ export default function App() {
             
             {/* VIDEO EDITOR STUDIO TAB */}
             {activeTab === 'user_dashboard' && userDashboardTab === 'video_editor' && (
-              <div className="p-4 sm:p-6 flex-1 w-full max-w-[1600px] mx-auto">
+              <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
                 <VideoEditor 
                   onBack={() => setUserDashboardTab('overview')} 
                   showToast={(msg, type) => showToast(msg, type || 'success')} 
