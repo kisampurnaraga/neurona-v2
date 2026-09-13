@@ -26,7 +26,11 @@ import {
   AlertCircle,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  BrainCircuit,
+  Film,
+  Megaphone,
+  Presentation
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -52,6 +56,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { AffiliateStudio } from './components/AffiliateStudio';
+import { VideoEditor } from './components/VideoEditor';
 
 // Interfaces based on blueprint
 interface UserProfile {
@@ -922,7 +927,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('/')}>
             <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
+              <BrainCircuit className="w-5 h-5 text-white" />
             </div>
             <span className="font-extrabold text-xl bg-gradient-to-r from-blue-700 to-cyan-500 bg-clip-text text-transparent tracking-tight">
               Neurona
@@ -1393,12 +1398,12 @@ export default function App() {
 
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100/60 rounded-full text-blue-700 font-bold text-xs mb-6 uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 animate-pulse text-cyan-500" />
+                      <BrainCircuit className="w-3.5 h-3.5 animate-pulse text-cyan-500" />
                       <span>Platform Produksi AI All-In-One</span>
                     </div>
 
                     <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-none mb-6">
-                      <span className="bg-gradient-to-r from-blue-700 to-cyan-500 bg-clip-text text-transparent">Neuronan</span>
+                      <span className="bg-gradient-to-r from-blue-700 to-cyan-500 bg-clip-text text-transparent">Neurona</span>
                     </h1>
 
                     <p className="max-w-2xl mx-auto text-lg sm:text-xl text-slate-600 font-medium leading-relaxed mb-10">
@@ -1723,139 +1728,108 @@ export default function App() {
             {activeTab === 'user_dashboard' && (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
                 {/* Header with Navigation for Member */}
-                <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-800 font-bold text-xs mb-2">
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Member Resmi Neurona (Aktif)</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">
-                      Dashboard Member, <span className="bg-gradient-to-r from-blue-700 to-cyan-500 bg-clip-text text-transparent">{userProfile?.namaLengkap || 'Pengguna'}</span>
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-0.5">Generate storyboard gambar gratis tanpa limit & render video AI konsisten tanpa perubahan produk.</p>
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 py-8">
+                  
+                  {/* Header Intro */}
+                  <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-500/20">
+                    <BrainCircuit className="w-10 h-10 text-white" />
+                  </div>
+                  
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-800 font-bold text-xs mb-4">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Akses Otentikasi Berhasil</span>
                   </div>
 
-                  {/* Sub-tab Navigation */}
-                  <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 self-stretch sm:self-auto shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setUserDashboardTab('affiliate_studio')}
-                      className={`px-4 py-2 text-xs font-black rounded-xl transition-all flex items-center gap-2 ${
-                        userDashboardTab === 'affiliate_studio'
-                          ? 'bg-white text-blue-700 shadow-sm border border-slate-200/60'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Studio Affiliate AI</span>
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold rounded">Gratis</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserDashboardTab('overview')}
-                      className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-                        userDashboardTab === 'overview'
-                          ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Overview Layanan
-                    </button>
+                  <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-10">
+                    Halo selamat datang, <span className="bg-gradient-to-r from-blue-700 to-cyan-500 bg-clip-text text-transparent">{userProfile?.namaLengkap || 'Member'}</span>
+                  </h1>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-5xl text-left">
+                    {/* CARD 1: AI Studio */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0">
+                            <BrainCircuit className="w-7 h-7 text-blue-600" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-slate-800">Ruang Kerja AI Studio</h2>
+                            <p className="text-xs font-bold text-blue-600">Generator & AI Rendering</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                          Ruang kerja AI Studio Anda telah siap. Karena alasan keamanan dan sinkronisasi, Anda akan diarahkan ke environment studio khusus kami.
+                        </p>
+                      </div>
+
+                      <div className="mt-auto">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+                          <a 
+                            href="https://share.gemini.google/bZOivLRIPMqR" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="px-6 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-[15px] rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 w-full"
+                          >
+                            Buka AI Studio <ExternalLink className="w-4 h-4 shrink-0" />
+                          </a>
+                          
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText('https://share.gemini.google/bZOivLRIPMqR');
+                              showToast('Link berhasil disalin!', 'success');
+                            }}
+                            className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[15px] rounded-xl transition-all flex items-center justify-center gap-2 w-full"
+                          >
+                            <Copy className="w-4 h-4 shrink-0" />
+                            Salin Link
+                          </button>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3.5 rounded-xl text-xs leading-relaxed">
+                          <strong className="block mb-1">Catatan Penting:</strong> Jika tombol "Buka AI Studio" tidak berfungsi karena keamanan browser, klik <strong>Salin Link</strong> dan paste (tempel) di tab baru. Harap jangan bagikan URL kepada non-member.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CARD 2: OpenCut */}
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center shrink-0">
+                            <Video className="w-7 h-7 text-purple-600" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-slate-800">Edit Video</h2>
+                            <p className="text-xs font-bold text-purple-600">Powered by OpenCut</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                          Alat editor video gratis terintegrasi. Fitur ini dapat digunakan untuk <strong>menggabungkan semua scene video</strong> hasil render AI, menyesuaikan transisi, dan menambahkan <strong>teks narasi TikTok</strong> dengan mudah.
+                        </p>
+                      </div>
+
+                      <div className="flex mt-auto">
+                        <button
+                          onClick={() => setUserDashboardTab('video_editor')}
+                          className="px-6 py-3.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-bold text-[15px] rounded-xl shadow-md shadow-purple-500/20 transition-all flex items-center justify-center gap-2 w-full"
+                        >
+                          Buka Editor Video (OpenCut) <Video className="w-4 h-4 shrink-0" />
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
-
-                {/* TAB 1: Studio Affiliate & Storyboard Generator */}
-                {userDashboardTab === 'affiliate_studio' && (
-                  <AffiliateStudio showToast={(msg, type) => showToast(msg, type || 'success')} />
-                )}
-
-                {/* TAB 2: Overview Layanan */}
-                {userDashboardTab === 'overview' && (
-                  <div className="space-y-8 max-w-5xl mx-auto w-full py-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      {/* Card 1: Produksi Video (Active) */}
-                      <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between transition-all hover:shadow-md hover:border-slate-200/60 group">
-                        <div>
-                          <div className="w-12 h-12 bg-blue-50 group-hover:bg-blue-100/80 rounded-2xl flex items-center justify-center transition-colors mb-5">
-                            <Video className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-700 transition-colors">Studio Produksi AI</h3>
-                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md">Aktif</span>
-                          </div>
-                          <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                            Generator Storyboard (Single/Grid) ala Genova gratis untuk member, terintegrasi pipeline MCP OpenArt AI, Highfield AI, dan Google Flow dengan Anti-Morphing.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <button 
-                            type="button"
-                            onClick={() => setUserDashboardTab('affiliate_studio')}
-                            className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold text-sm rounded-xl text-center shadow-md shadow-blue-500/10 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Sparkles className="w-4 h-4" />
-                            <span>Buka Studio Affiliate AI</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowStudioModal(true)}
-                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <span>Google Gemini Studio (Cloud)</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Card 2: Editing Video (Coming Soon) */}
-                      <div className="bg-white/60 border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between opacity-80">
-                        <div>
-                          <div className="flex justify-between items-start mb-5">
-                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
-                              <Settings className="w-6 h-6 text-slate-400" />
-                            </div>
-                            <span className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-slate-200/50">
-                              Coming Soon
-                            </span>
-                          </div>
-                          <h3 className="text-lg font-bold text-slate-400 mb-2">Editing Video</h3>
-                          <p className="text-xs text-slate-400 leading-relaxed mb-6">Editor berbasis timeline cerdas untuk memotong secara otomatis, menyesuaikan audio, dan transisi pintar.</p>
-                        </div>
-
-                        <button 
-                          disabled
-                          className="w-full py-2.5 bg-slate-100 text-slate-400 font-bold text-sm rounded-xl cursor-not-allowed text-center border border-slate-200/40"
-                        >
-                          Kunjungi
-                        </button>
-                      </div>
-
-                      {/* Card 3: Produksi Ebook (Coming Soon) */}
-                      <div className="bg-white/60 border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between opacity-80">
-                        <div>
-                          <div className="flex justify-between items-start mb-5">
-                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
-                              <BookOpen className="w-6 h-6 text-slate-400" />
-                            </div>
-                            <span className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-slate-200/50">
-                              Coming Soon
-                            </span>
-                          </div>
-                          <h3 className="text-lg font-bold text-slate-400 mb-2">Produksi Ebook</h3>
-                          <p className="text-xs text-slate-400 leading-relaxed mb-6">Desain tata letak, riset topik terintegrasi, dan generate bab naskah ebook profesional dalam sekejap.</p>
-                        </div>
-
-                        <button 
-                          disabled
-                          className="w-full py-2.5 bg-slate-100 text-slate-400 font-bold text-sm rounded-xl cursor-not-allowed text-center border border-slate-200/40"
-                        >
-                          Kunjungi
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              </div>
+            )}
+            
+            {/* VIDEO EDITOR STUDIO TAB */}
+            {activeTab === 'user_dashboard' && userDashboardTab === 'video_editor' && (
+              <div className="p-4 sm:p-6 flex-1 w-full max-w-[1600px] mx-auto">
+                <VideoEditor 
+                  onBack={() => setUserDashboardTab('overview')} 
+                  showToast={(msg, type) => showToast(msg, type || 'success')} 
+                />
               </div>
             )}
           </div>

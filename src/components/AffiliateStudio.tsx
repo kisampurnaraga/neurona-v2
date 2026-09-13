@@ -19,7 +19,9 @@ import {
   ChevronDown,
   X,
   Share2,
-  Maximize2
+  Maximize2,
+  BrainCircuit,
+  Smartphone
 } from 'lucide-react';
 import { 
   AspectRatio, 
@@ -33,6 +35,7 @@ import { VideoGenerationModal } from './VideoGenerationModal';
 
 interface AffiliateStudioProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+  studioType?: 'affiliate' | 'film' | 'education' | 'ads';
 }
 
 const SHOT_OPTIONS: ShotType[] = [
@@ -48,18 +51,19 @@ const SHOT_OPTIONS: ShotType[] = [
   'Macro Shot',
 ];
 
-export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) => {
+export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, studioType = 'affiliate' }) => {
   // Mode tabs
   const [activeTab, setActiveTab] = useState<'studio' | 'ugc'>('studio');
 
   // Form states
-  const [productName, setProductName] = useState('Parfum Black Oud Lonkoom');
-  const [productImages, setProductImages] = useState<string[]>([
-    'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=600&auto=format&fit=crop&q=80'
-  ]);
-  const [modelImage, setModelImage] = useState<string>(
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80'
+  const [productName, setProductName] = useState(
+    studioType === 'film' ? 'Film Action Cyberpunk' : 
+    studioType === 'education' ? 'Kursus Coding React' :
+    studioType === 'ads' ? 'Promo Sepatu Sneaker' :
+    'Parfum Black Oud Lonkoom'
   );
+  const [productImages, setProductImages] = useState<string[]>([]);
+  const [modelImage, setModelImage] = useState<string>('');
 
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
   const [shotType, setShotType] = useState<ShotType>('Mix (Variasi Shot)');
@@ -74,66 +78,12 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
   // Generation & Results
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState('');
-  const [projectResult, setProjectResult] = useState<StoryboardProject | null>({
-    id: 'demo-1',
-    productName: 'Parfum Black Oud Lonkoom',
-    aspectRatio: '9:16',
-    shotType: 'Mix (Variasi Shot)',
-    cameraType: 'Smartphone (iPhone)',
-    clothingType: 'default',
-    layout: 'grid',
-    imageCount: 4,
-    interactionPose: 'Pria tersenyum sedang menyemprotkan dan memegang parfum Black Oud di depan jendela',
-    productImages: ['https://images.unsplash.com/photo-1594035910387-fea47794261f?w=600&auto=format&fit=crop&q=80'],
-    modelImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
-    createdAt: new Date().toISOString(),
-    scenes: [
-      {
-        sceneNumber: 1,
-        label: 'SCENE 1',
-        imageUrl: 'https://images.unsplash.com/photo-1615397349754-cfa2066a298e?w=800&auto=format&fit=crop&q=80',
-        shotType: 'Close Up (CU)',
-        prompt: 'Indonesian man close up smelling luxury Black Oud perfume bottle near window',
-        videoPrompt: 'Man gently brings Black Oud perfume bottle to nose, smiling subtly, 4k cinematic',
-        negativeVideoPrompt: 'morphing bottle, shifting text, extra fingers, cartoon'
-      },
-      {
-        sceneNumber: 2,
-        label: 'SCENE 2',
-        imageUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&auto=format&fit=crop&q=80',
-        shotType: 'Extreme Close Up (ECU)',
-        prompt: 'Macro shot of Black Oud Lonkoom luxury perfume bottle held in hand with clear gold lettering',
-        videoPrompt: 'Hand slowly rotates Black Oud perfume bottle showcasing the metallic cap, macro lens',
-        negativeVideoPrompt: 'morphing bottle, shifting text, extra fingers, cartoon'
-      },
-      {
-        sceneNumber: 3,
-        label: 'SCENE 3',
-        imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80',
-        shotType: 'Medium Close Up (MCU)',
-        prompt: 'Indonesian man pressing spray atomizer nozzle on Black Oud perfume bottle with fine mist',
-        videoPrompt: 'Man presses perfume atomizer releasing subtle fine mist towards neck, smooth slow motion',
-        negativeVideoPrompt: 'morphing bottle, shifting text, extra fingers, cartoon'
-      },
-      {
-        sceneNumber: 4,
-        label: 'SCENE 4',
-        imageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop&q=80',
-        shotType: 'Medium Shot (MS)',
-        prompt: 'Handsome Indonesian man smiling confidently holding Black Oud Lonkoom bottle towards camera',
-        videoPrompt: 'Man smiles and gives a slight nod holding Black Oud perfume steadily to camera',
-        negativeVideoPrompt: 'morphing bottle, shifting text, extra fingers, cartoon'
-      }
-    ],
-    tiktokCaption: '🔥 Rahasia wangi cowok mahal seharian tanpa bikin kantong jebol! Parfum Black Oud Lonkoom ini wanginya beneran elegan dan tahan 12 jam. Buruan checkout di keranjang kuning mumpung lagi diskon! #BlackOud #RacunTikTok #ParfumPria #AffiliateTikTok'
-  });
+  const [projectResult, setProjectResult] = useState<StoryboardProject | null>(null);
 
   // Modals
   const [activeVideoScene, setActiveVideoScene] = useState<StoryboardSceneItem | null>(null);
   const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
-  const [tiktokCaption, setTiktokCaption] = useState<string>(
-    '🔥 Rahasia wangi cowok mahal seharian tanpa bikin kantong jebol! Parfum Black Oud Lonkoom ini wanginya beneran elegan dan tahan 12 jam. Buruan checkout di keranjang kuning mumpung lagi diskon! #BlackOud #RacunTikTok #ParfumPria #AffiliateTikTok'
-  );
+  const [tiktokCaption, setTiktokCaption] = useState<string>('');
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
 
@@ -181,20 +131,31 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
   };
 
   // Generate TikTok Caption
-  const handleGenerateCaption = () => {
+  const handleGenerateCaption = async () => {
     setIsGeneratingCaption(true);
-    setTimeout(() => {
+    try {
       const pName = productName || 'Produk Favorit';
-      const captions = [
-        `🔥 STOP SCROLLING! Kalau kalian cari ${pName} yang beneran viral dan kualitasnya bintang lima, ini jawabannya! Wangi/bahannya tahan lama dan mewah banget. Klik keranjang kuning sekarang sebelum kehabisan promo! ✨ #RacunTikTok #Viral #TikTokShop #${pName.replace(/\s+/g, '')} #Affiliate`,
-        `Gak nyangka nemu ${pName} sebagus ini di TikTok! Dipake sehari-hari beneran nyaman dan bikin percaya diri naik 100%. Lagi ada diskon potongan ongkir, buruan amankan di keranjang kuning! 🛍️ #SpillBarangViral #${pName.replace(/\s+/g, '')} #RekomendasiTikTok`,
-        `Kalian wajib coba ${pName} ini sekarang juga! Dari packaging sampai kualitasnya gak kaleng-kaleng. Langsung checkout lewat link keranjang kuning ya! 👇 #RekomendasiProduk #UnboxingTikTok #BarangBagus #${pName.replace(/\s+/g, '')}`
-      ];
-      const selected = captions[Math.floor(Math.random() * captions.length)];
-      setTiktokCaption(selected);
-      setIsGeneratingCaption(false);
+      const response = await fetch('/api/generate-caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productName: pName, mode: activeTab, studioType })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Gagal memuat caption');
+      }
+      
+      const data = await response.json();
+      setTiktokCaption(data.caption);
       showToast('Caption TikTok AI berhasil dibuat!', 'success');
-    }, 800);
+    } catch (error: any) {
+      console.error(error);
+      const errMsg = error.message || 'Gagal memuat caption AI. Coba lagi.';
+      showToast(errMsg, 'error');
+    } finally {
+      setIsGeneratingCaption(false);
+    }
   };
 
   const handleCopyCaption = () => {
@@ -214,75 +175,64 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
     setIsGenerating(true);
     setGenerationStep('Menganalisis karakteristik produk & wajah model...');
 
-    await new Promise(r => setTimeout(r, 600));
-    setGenerationStep('Menyusun prompt konsistensi kamera & komposisi shot...');
+    try {
+      const count = layout === 'single' ? 1 : (imageCount || 4);
+      const safeName = productName || 'Produk Eksklusif';
 
-    await new Promise(r => setTimeout(r, 700));
-    setGenerationStep('Merender adegan Storyboard beresolusi tinggi...');
-
-    // Generate scenes with high fidelity AI prompt seeds
-    const count = layout === 'single' ? 1 : (imageCount || 4);
-    const scenesList: StoryboardSceneItem[] = [];
-
-    const shotProgression: ShotType[] = [
-      'Close Up (CU)',
-      'Extreme Close Up (ECU)',
-      'Medium Close Up (MCU)',
-      'Medium Shot (MS)'
-    ];
-
-    const sampleImages = [
-      'https://images.unsplash.com/photo-1615397349754-cfa2066a298e?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop&q=80'
-    ];
-
-    const safeName = productName || 'Produk Eksklusif';
-
-    for (let i = 0; i < count; i++) {
-      const selectedShot = shotType === 'Mix (Variasi Shot)' ? shotProgression[i % shotProgression.length] : shotType;
+      setGenerationStep('Memproses instruksi ke server AI...');
       
-      // We construct realistic high resolution generated scene URLs
-      // Using Pollinations AI with encoded consistent prompt
-      const promptSeed = encodeURIComponent(
-        `photorealistic Indonesian model, holding ${safeName}, ${selectedShot}, ${cameraType}, photorealistic 8k, daylight studio lighting, consistent facial identity, sharp packaging text`
-      );
-      const generatedUrl = `https://image.pollinations.ai/prompt/${promptSeed}?width=768&height=${aspectRatio === '9:16' ? 1344 : aspectRatio === '1:1' ? 768 : 432}&nologo=true&seed=${Math.floor(Math.random() * 99999)}`;
-
-      scenesList.push({
-        sceneNumber: i + 1,
-        label: `SCENE ${i + 1}`,
-        // Use generated pollinations url with fallback to curated high-res photography
-        imageUrl: sampleImages[i % sampleImages.length] || generatedUrl,
-        shotType: selectedShot,
-        prompt: `${selectedShot} of person showcasing ${safeName}, ${cameraType}, ${interactionPose}`,
-        videoPrompt: `Subject holding ${safeName} with absolute packaging consistency, camera slow dolly in, 4k cinematic lighting`,
-        negativeVideoPrompt: `morphing ${safeName}, shifting labels, distorted text, warped bottle, extra limbs`
+      const response = await fetch('/api/generate-storyboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: safeName,
+          productImages,
+          modelImage,
+          shotType,
+          cameraType,
+          clothesType: clothingType === 'custom' ? customClothing : clothingType,
+          interaction: interactionPose,
+          count,
+          mode: activeTab,
+          studioType
+        })
       });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Gagal memuat storyboard AI');
+      }
+
+      setGenerationStep('Menerima hasil render gambar dari AI...');
+      const data = await response.json();
+
+      const newProject: StoryboardProject = {
+        id: 'proj-' + Date.now(),
+        productName: safeName,
+        aspectRatio,
+        shotType,
+        cameraType,
+        clothingType,
+        customClothing,
+        layout,
+        imageCount: count,
+        interactionPose,
+        productImages,
+        modelImage,
+        scenes: data.scenes || [],
+        createdAt: new Date().toISOString(),
+        tiktokCaption
+      };
+
+      setProjectResult(newProject);
+      showToast('Storyboard AI berhasil digenerate murni dari AI!', 'success');
+    } catch (error: any) {
+      console.error(error);
+      const errMsg = error.message || 'Terjadi kesalahan saat render AI. Coba lagi.';
+      showToast(errMsg, 'error');
+    } finally {
+      setIsGenerating(false);
     }
-
-    const newProject: StoryboardProject = {
-      id: 'proj-' + Date.now(),
-      productName: safeName,
-      aspectRatio,
-      shotType,
-      cameraType,
-      clothingType,
-      customClothing,
-      layout,
-      imageCount: count,
-      interactionPose,
-      productImages,
-      modelImage,
-      scenes: scenesList,
-      createdAt: new Date().toISOString(),
-      tiktokCaption
-    };
-
-    setProjectResult(newProject);
-    setIsGenerating(false);
-    showToast('Storyboard AI berhasil digenerate!', 'success');
   };
 
   const handleDownloadFullGrid = () => {
@@ -330,32 +280,46 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
         </div>
 
         {/* Tab Switcher: AI Studio / Bypass UGC */}
-        <div className="flex gap-2 pt-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('studio')}
-            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-black text-xs transition-all ${
-              activeTab === 'studio'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-            }`}
-          >
-            AI Studio
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('ugc');
-              showToast('Mode Bypass UGC aktif: Meniru nuansa video amatir organik TikTok!', 'info');
-            }}
-            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-black text-xs transition-all ${
-              activeTab === 'ugc'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-            }`}
-          >
-            Bypass UGC
-          </button>
+        <div className="flex flex-col gap-3 pt-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('studio')}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'studio'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              <BrainCircuit className="w-4 h-4" />
+              <span>AI Studio PRO</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ugc');
+                showToast('Mode Bypass UGC aktif: Meniru nuansa video amatir organik TikTok!', 'info');
+              }}
+              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'ugc'
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Bypass UGC</span>
+            </button>
+          </div>
+          
+          <div className={`p-3 rounded-xl border text-xs leading-relaxed ${activeTab === 'studio' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-emerald-50 border-emerald-100 text-emerald-800'}`}>
+            {activeTab === 'studio' 
+              ? <strong>Mode AI Studio PRO:</strong> 
+              : <strong>Mode Bypass UGC:</strong>}
+            {' '}
+            {activeTab === 'studio' 
+              ? 'Generator akan berfokus pada hasil sinematik, pencahayaan studio resolusi tinggi, dan estetika iklan komersial yang dipoles.' 
+              : 'Generator akan meniru gaya video amatir (User Generated Content), pencahayaan kasual/kamera HP, untuk menciptakan hook natural (tidak terlihat seperti iklan).'}
+          </div>
         </div>
       </div>
 
@@ -449,21 +413,26 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
               />
             </div>
 
-            {/* Caption TikTok AI */}
+            {/* Caption AI */}
             <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 rounded-2xl p-3.5 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-cyan-900 flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-cyan-900 flex items-center gap-1.5 uppercase">
                   <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-                  <span>CAPTION TIKTOK AI</span>
+                  <span>
+                    {studioType === 'film' ? 'SINOPSIS TRAILER AI' : 
+                     studioType === 'education' ? 'HOOK EDUKASI AI' : 
+                     studioType === 'ads' ? 'SCRIPT IKLAN AI' : 
+                     'CAPTION TIKTOK AI'}
+                  </span>
                 </span>
                 <button
                   type="button"
                   onClick={handleGenerateCaption}
                   disabled={isGeneratingCaption}
-                  className="px-3 py-1 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                  className="px-3 py-1 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 uppercase"
                 >
                   <Sparkles className="w-3 h-3" />
-                  <span>{isGeneratingCaption ? 'Membuat...' : 'GENERATE CAPTION TIKTOK'}</span>
+                  <span>{isGeneratingCaption ? 'Membuat...' : 'GENERATE (AI)'}</span>
                 </button>
               </div>
 
@@ -478,7 +447,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast }) =
                     className="mt-1.5 text-[10px] font-bold text-cyan-700 hover:text-cyan-900 flex items-center gap-1 ml-auto"
                   >
                     {copiedCaption ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedCaption ? 'Tersalin!' : 'Salin Caption'}</span>
+                    <span>{copiedCaption ? 'Tersalin!' : 'Salin Text'}</span>
                   </button>
                 </div>
               )}
