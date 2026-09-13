@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        getUserData().role == 'admin';
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      // Users can read their own profile; Admins can read all profiles.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+
+      // Anyone can register their own profile.
+      // Must enforce proper role/status based on email/default rules.
+      allow create: if isSignedIn() && request.auth.uid == userId 
+        && incoming().namaLengkap is string && incoming().namaLengkap.size() <= 100
+        && incoming().email is string && incoming().email.size() <= 100
+        && incoming().whatsapp is string && incoming().whatsapp.size() <= 20
+        && incoming().whatsapp.matches('^[0-9]+$')
+        && (
+          // Standard user registration
+          (incoming().role == 'user' && incoming().status == 'PENDING') ||
+          // Default admin registration auto-approval
+          ((incoming().email == 'ia.asep12@gmail.com' || incoming().email == 'admin@neuronan.com') && incoming().role == 'admin' && incoming().status == 'ACTIVE')
+        );
+
+      // Users can update their own non-sensitive details; Admins can update any profile.
+      // Special: default admin users can self-repair/elevate their own profile to admin/active.
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          request.auth.uid == userId && (
+            (
+              incoming().role == existing().role
+              && incoming().status == existing().status
+              && incoming().email == existing().email
+              && incoming().namaLengkap is string && incoming().namaLengkap.size() <= 100
+              && incoming().whatsapp is string && incoming().whatsapp.size() <= 20
+              && incoming().whatsapp.matches('^[0-9]+$')
+              && incoming().diff(existing()).affectedKeys().hasOnly(['namaLengkap', 'whatsapp'])
+            ) || (
+              (incoming().email == 'ia.asep12@gmail.com' || incoming().email == 'admin@neuronan.com')
+              && incoming().role == 'admin'
+              && incoming().status == 'ACTIVE'
+            )
+          )
+        )
+      );
+
+      // Deletes are forbidden.
+      allow delete: if false;
+    }
+
+    // Settings Collection rules
+    match /settings/{settingId} {
+      // Authenticated users can read settings (like payment bank details).
+      allow read: if isSignedIn();
+
+      // Only Admins can modify settings.
+      allow write: if isAdmin() 
+        && incoming().bankName is string && incoming().bankName.size() <= 100
+        && incoming().accountNumber is string && incoming().accountNumber.size() <= 100
+        && incoming().accountHolder is string && incoming().accountHolder.size() <= 100;
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about a registered user or administrator.",
+      "type": "object",
+      "properties": {
+        "namaLengkap": {
+          "type": "string",
+          "description": "The user's full name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's unique email address"
+        },
+        "whatsapp": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "WhatsApp number containing digits only"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "ACTIVE", "REJECTED"],
+          "description": "Account approval status"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "The authorization role of the user"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of user registration"
+        }
+      },
+      "required": ["namaLengkap", "email", "whatsapp", "status", "role", "createdAt"]
+    },
+    "PaymentSetting": {
+      "title": "Payment Settings",
+      "description": "Bank account coordinates for user registration fees.",
+      "type": "object",
+      "properties": {
+        "bankName": {
+          "type": "string",
+          "description": "Name of the target bank"
+        },
+        "accountNumber": {
+          "type": "string",
+          "description": "Account number for payment transfer"
+        },
+        "accountHolder": {
+          "type": "string",
+          "description": "Name of the bank account holder"
+        }
+      },
+      "required": ["bankName", "accountNumber", "accountHolder"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles indexed by their Firebase Auth UID."
+    },
+    "/settings/{settingId}": {
+      "schema": "PaymentSetting",
+      "description": "Admin configurations such as bank account credentials."
+    }
+  }
+}
