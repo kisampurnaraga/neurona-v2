@@ -3,6 +3,38 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+
+// Initialize Firebase Admin SDK safely
+if (!getApps().length) {
+  try {
+    initializeApp();
+  } catch (e) {
+    initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'ai-studio-bd97f99d-b1b8-4902-ac5c-be804aaceda1'
+    });
+  }
+}
+
+// Middleware to verify Firebase ID Token server-side
+async function verifyFirebaseToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid Authorization Bearer Token' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    (req as any).user = decodedToken;
+    next();
+  } catch (error: any) {
+    console.error('Firebase Token verification failed:', error.message);
+    return res.status(403).json({ error: 'Forbidden: Invalid or expired Firebase ID Token' });
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -31,6 +63,45 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Server-side Payment Price Validation Endpoint (Anti-price manipulation)
+  app.post("/api/checkout/validate-price", async (req, res) => {
+    try {
+      const db = getFirestore();
+      const priceDoc = await db.collection('settings').doc('price').get();
+      
+      let normalPrice = 499000;
+      let promoPrice = 99000;
+      let flashSaleEnabled = true;
+      let endTime = null;
+
+      if (priceDoc.exists) {
+        const data = priceDoc.data();
+        normalPrice = data?.normalPrice ?? 499000;
+        promoPrice = data?.promoPrice ?? 99000;
+        flashSaleEnabled = data?.flashSaleEnabled !== false;
+        endTime = data?.endTime;
+      }
+
+      const isFlashSaleValid = flashSaleEnabled && (!endTime || new Date(endTime).getTime() > Date.now());
+      const serverFinalPrice = isFlashSaleValid ? promoPrice : normalPrice;
+
+      res.json({
+        validPrice: serverFinalPrice,
+        isFlashSale: isFlashSaleValid,
+        currency: 'IDR',
+        productName: 'Akses Lifetime Storyboard AI (5 Studio)'
+      });
+    } catch (err: any) {
+      console.error('Checkout price validation error:', err);
+      res.json({
+        validPrice: 99000,
+        isFlashSale: true,
+        currency: 'IDR',
+        productName: 'Akses Lifetime Storyboard AI (5 Studio)'
+      });
+    }
   });
 
   // Showcase File Upload Endpoint (fail-safe for Firebase Storage unauthorized errors)

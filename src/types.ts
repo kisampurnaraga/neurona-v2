@@ -58,7 +58,10 @@ export interface PriceSetting {
   promoPrice: number; // e.g. 99000
   flashSaleHours: number; // e.g. 4
   flashSaleMinutes: number; // e.g. 15
-  promoEndDate?: string; // Optional custom target ISO string or text
+  flashSaleEnabled?: boolean; // true/false
+  startTime?: string; // ISO date string
+  endTime?: string; // ISO date string
+  promoEndDate?: string; // Optional custom target ISO string
 }
 
 export interface WhatsappSetting {

@@ -8,13 +8,17 @@ interface PromoCountdownProps {
     flashSaleMinutes?: number;
     normalPrice?: number;
     promoPrice?: number;
+    flashSaleEnabled?: boolean;
+    startTime?: string;
+    endTime?: string;
   };
   onExpire?: () => void;
 }
 
-export const PromoCountdown: React.FC<PromoCountdownProps> = ({ variant = 'card', priceSetting }) => {
+export const PromoCountdown: React.FC<PromoCountdownProps> = ({ variant = 'card', priceSetting, onExpire }) => {
   const defaultHours = priceSetting?.flashSaleHours ?? 4;
   const defaultMins = priceSetting?.flashSaleMinutes ?? 15;
+  const serverEndTime = priceSetting?.endTime;
 
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: defaultHours,
@@ -23,15 +27,20 @@ export const PromoCountdown: React.FC<PromoCountdownProps> = ({ variant = 'card'
   });
 
   useEffect(() => {
-    // Determine target end timestamp for countdown
-    // Store/retrieve target timestamp relative to when admin updated or when current session started
-    const totalMs = (defaultHours * 3600000) + (defaultMins * 60000);
-    const sessionKey = `neurona_timer_target_${defaultHours}_${defaultMins}`;
-    
-    let targetTime = Number(sessionStorage.getItem(sessionKey));
-    if (!targetTime || isNaN(targetTime) || targetTime <= Date.now()) {
-      targetTime = Date.now() + (totalMs > 0 ? totalMs : 14400000);
-      sessionStorage.setItem(sessionKey, targetTime.toString());
+    let targetTime: number;
+
+    if (serverEndTime) {
+      const parsed = new Date(serverEndTime).getTime();
+      targetTime = !isNaN(parsed) ? parsed : Date.now() + (defaultHours * 3600000) + (defaultMins * 60000);
+    } else {
+      const totalMs = (defaultHours * 3600000) + (defaultMins * 60000);
+      const sessionKey = `neurona_timer_target_${defaultHours}_${defaultMins}`;
+      let stored = Number(sessionStorage.getItem(sessionKey));
+      if (!stored || isNaN(stored) || stored <= Date.now()) {
+        stored = Date.now() + (totalMs > 0 ? totalMs : 14400000);
+        sessionStorage.setItem(sessionKey, stored.toString());
+      }
+      targetTime = stored;
     }
 
     const updateTimer = () => {
@@ -39,10 +48,12 @@ export const PromoCountdown: React.FC<PromoCountdownProps> = ({ variant = 'card'
       let diff = targetTime - now;
 
       if (diff <= 0) {
-        // Reset when timer finishes
-        targetTime = Date.now() + (totalMs > 0 ? totalMs : 14400000);
-        sessionStorage.setItem(sessionKey, targetTime.toString());
-        diff = targetTime - now;
+        diff = 0;
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+        if (onExpire) {
+          onExpire();
+        }
+        return;
       }
 
       const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -56,7 +67,7 @@ export const PromoCountdown: React.FC<PromoCountdownProps> = ({ variant = 'card'
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [defaultHours, defaultMins]);
+  }, [defaultHours, defaultMins, serverEndTime, onExpire]);
 
   const format2Digits = (num: number) => String(num).padStart(2, '0');
 

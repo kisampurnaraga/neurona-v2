@@ -58,6 +58,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [copiedDemo, setCopiedDemo] = useState(false);
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<'storyboard' | 'export' | 'generate'>('export');
+  const [isExpiredLocally, setIsExpiredLocally] = useState(false);
+
+  // Check if flash sale is active and valid
+  const isFlashSaleActive = priceSetting?.flashSaleEnabled !== false && !isExpiredLocally && (
+    !priceSetting?.endTime || new Date(priceSetting.endTime).getTime() > Date.now()
+  );
+
+  const displayPrice = isFlashSaleActive 
+    ? (priceSetting?.promoPrice ?? 99000) 
+    : (priceSetting?.normalPrice ?? 499000);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -105,26 +115,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     <div className="flex-1 flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
       
       {/* 1. TOP STICKY PROMO ANNOUNCEMENT BAR */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-cyan-900 border-b border-cyan-500/30 px-3 py-2.5 text-center text-xs sm:text-sm text-white sticky top-16 z-20 shadow-md">
+      <div className={`bg-gradient-to-r ${isFlashSaleActive ? 'from-blue-900 via-indigo-900 to-cyan-900' : 'from-slate-900 to-slate-950'} border-b border-cyan-500/30 px-3 py-2.5 text-center text-xs sm:text-sm text-white sticky top-16 z-20 shadow-md`}>
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 sm:gap-4 font-medium">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+            <span className={`w-2 h-2 rounded-full ${isFlashSaleActive ? 'bg-rose-400 animate-ping' : 'bg-slate-400'}`}></span>
             <span className="font-bold text-amber-300 flex items-center gap-1">
-              <Flame className="w-4 h-4 text-rose-400 fill-rose-400" /> FLASH SALE PROMO:
+              <Flame className={`w-4 h-4 ${isFlashSaleActive ? 'text-rose-400 fill-rose-400' : 'text-slate-400'}`} /> {isFlashSaleActive ? 'FLASH SALE PROMO:' : 'HARGA NORMAL:'}
             </span>
             <span className="hidden sm:inline text-slate-200">Aplikasi Storyboard AI 5 Studio (Affiliate, Animasi, Edukasi, Podcast, Film) Seumur Hidup Hanya</span>
             <strong className="bg-rose-500 text-white px-2 py-0.5 rounded font-black text-xs">
-              Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')}
+              Rp {displayPrice.toLocaleString('id-ID')}
             </strong>
           </div>
 
           <div className="flex items-center gap-2">
-            <PromoCountdown variant="compact" priceSetting={priceSetting} />
+            {isFlashSaleActive && (
+              <PromoCountdown 
+                variant="compact" 
+                priceSetting={priceSetting} 
+                onExpire={() => setIsExpiredLocally(true)}
+              />
+            )}
             <button 
               onClick={onRegisterClick}
               className="px-3 py-1 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-lg shadow transition-all hover:scale-105 whitespace-nowrap"
             >
-              Klaim Promo &rarr;
+              {isFlashSaleActive ? 'Klaim Promo →' : 'Beli Sekarang →'}
             </button>
           </div>
         </div>
@@ -847,11 +863,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </span>
                 
                 <div className="flex items-baseline justify-center gap-3 my-2">
-                  <span className="text-slate-500 line-through text-xl font-bold">
-                    Rp {(priceSetting?.normalPrice ?? 499000).toLocaleString('id-ID')}
-                  </span>
+                  {isFlashSaleActive && (
+                    <span className="text-slate-500 line-through text-xl font-bold">
+                      Rp {(priceSetting?.normalPrice ?? 499000).toLocaleString('id-ID')}
+                    </span>
+                  )}
                   <span className="text-4xl sm:text-6xl font-black bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-200 bg-clip-text text-transparent">
-                    Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')}
+                    Rp {displayPrice.toLocaleString('id-ID')}
                   </span>
                 </div>
 
@@ -861,9 +879,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Countdown Timer Inside Pricing */}
-              <div className="mb-8">
-                <PromoCountdown variant="card" priceSetting={priceSetting} />
-              </div>
+              {isFlashSaleActive ? (
+                <div className="mb-8">
+                  <PromoCountdown 
+                    variant="card" 
+                    priceSetting={priceSetting} 
+                    onExpire={() => setIsExpiredLocally(true)}
+                  />
+                </div>
+              ) : (
+                <div className="mb-8 p-4 bg-slate-900/80 border border-slate-800 rounded-2xl text-center">
+                  <span className="text-xs font-bold text-slate-400">Status Promo: Normal Price / Flash Sale Nonaktif</span>
+                </div>
+              )}
 
               {/* What You Get Checklist */}
               <div className="space-y-3.5 mb-8 text-sm">

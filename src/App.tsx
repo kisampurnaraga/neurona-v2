@@ -1617,20 +1617,48 @@ export default function App() {
                       onSubmit={async (e) => {
                         e.preventDefault();
                         try {
+                          const hrs = Number(adminPriceForm.flashSaleHours) || 0;
+                          const mins = Number(adminPriceForm.flashSaleMinutes) || 0;
+                          const now = new Date();
+                          const endTime = new Date(now.getTime() + (hrs * 3600000) + (mins * 60000)).toISOString();
+
                           await setDoc(doc(db, 'settings', 'price'), {
                             normalPrice: Number(adminPriceForm.normalPrice) || 499000,
                             promoPrice: Number(adminPriceForm.promoPrice) || 99000,
-                            flashSaleHours: Number(adminPriceForm.flashSaleHours) || 4,
-                            flashSaleMinutes: Number(adminPriceForm.flashSaleMinutes) || 15,
-                            updatedAt: new Date().toISOString()
+                            flashSaleHours: hrs,
+                            flashSaleMinutes: mins,
+                            flashSaleEnabled: adminPriceForm.flashSaleEnabled !== false,
+                            startTime: now.toISOString(),
+                            endTime: endTime,
+                            updatedAt: now.toISOString()
                           }, { merge: true });
-                          showToast('Pengaturan harga & timer Flash Sale berhasil diperbarui!', 'success');
+                          showToast('Pengaturan harga & Flash Sale berhasil disimpan!', 'success');
                         } catch (err) {
                           showToast('Gagal menyimpan pengaturan harga', 'error');
                         }
                       }} 
                       className="space-y-5 max-w-lg"
                     >
+                      {/* Status Toggle ON / OFF */}
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">Status Flash Sale Promo</h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Aktifkan atau matikan Flash Sale di Landing Page</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAdminPriceForm(prev => ({ ...prev, flashSaleEnabled: prev.flashSaleEnabled === false ? true : false }))}
+                          className={`px-4 py-1.5 rounded-full text-xs font-black transition-all flex items-center gap-1.5 ${
+                            adminPriceForm.flashSaleEnabled !== false 
+                              ? 'bg-emerald-500 text-white shadow-sm' 
+                              : 'bg-slate-300 text-slate-600'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${adminPriceForm.flashSaleEnabled !== false ? 'bg-white animate-pulse' : 'bg-slate-500'}`}></span>
+                          <span>{adminPriceForm.flashSaleEnabled !== false ? 'FLASH SALE ON' : 'FLASH SALE OFF'}</span>
+                        </button>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-xs font-bold text-slate-700">Harga Normal (Dicoret)</label>
