@@ -159,13 +159,13 @@ export const AdminShowcase: React.FC<AdminShowcaseProps> = ({ showToast }) => {
     }
 
     try {
+      return await uploadToServer(file);
+    } catch (err: any) {
+      console.warn('Server storage upload fallback to client SDK:', err);
       const ext = file.name.split('.').pop() || (type === 'video' ? 'mp4' : 'jpg');
-      const fileRef = ref(storage, `showcase/${type}_${uuidv4()}.${ext}`);
+      const fileRef = ref(storage, `showcases/${type}_${uuidv4()}.${ext}`);
       await uploadBytes(fileRef, file);
       return await getDownloadURL(fileRef);
-    } catch (storageErr: any) {
-      console.warn(`Firebase Storage fallback to server upload...`);
-      return await uploadToServer(file);
     }
   };
 

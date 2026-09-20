@@ -47,11 +47,11 @@ service cloud.firestore {
         && (
           // Standard user registration must be user/PENDING
           (incoming().role == 'user' && incoming().status == 'PENDING') ||
-          // Admin registration auto-approval based on verified token email
-          (isAdmin() && incoming().role == 'admin' && incoming().status == 'ACTIVE')
+          // Admin registration auto-approval ONLY for hardcoded admin emails
+          (request.auth.token.email in ['ia.asep12@gmail.com', 'admin@neuronan.com'] && incoming().role == 'admin' && incoming().status == 'ACTIVE')
         );
 
-      // Users can update non-sensitive fields; Admins can update any profile (e.g. approve status).
+      // Users can update non-sensitive fields; Admins can update any profile (e.g. approve status/role).
       allow update: if isSignedIn() && (
         isAdmin() || (
           request.auth.uid == userId && (
@@ -95,10 +95,20 @@ service cloud.firestore {
       allow read: if true;
 
       // An authenticated user can register their affiliate profile (or admin)
-      allow create: if isSignedIn() && (request.auth.uid == affiliateId || isAdmin());
+      allow create: if isSignedIn() 
+        && (request.auth.uid == affiliateId || isAdmin())
+        && incoming().pendingEarnings == 0
+        && incoming().totalEarnings == 0
+        && incoming().paidEarnings == 0
+        && incoming().totalClicks == 0;
 
-      // Owner can update bank details or stats; Admin can update everything
-      allow update: if isSignedIn() && (request.auth.uid == affiliateId || isAdmin());
+      // Owner can update ONLY non-financial details (bank info, whatsapp); Admin can update everything
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          request.auth.uid == affiliateId &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['bankName', 'accountNumber', 'accountHolder', 'namaPemilikBank', 'whatsapp', 'updatedAt'])
+        )
+      );
 
       // Admin can delete
       allow delete: if isAdmin();
@@ -113,12 +123,8 @@ service cloud.firestore {
         resource.data.buyerUserId == request.auth.uid
       );
 
-      // Creating a referral requires strict server validation or default safe pending status
-      allow create: if isSignedIn() 
-        && incoming().status == 'pending'
-        && incoming().commissionRate == 40
-        && (incoming().productPrice == 99000 || incoming().productPrice == 499000)
-        && incoming().commissionAmount == (incoming().productPrice * 40 / 100);
+      // Direct client creation is STRICTLY DENIED (creation MUST go through server endpoint)
+      allow create: if false;
 
       // Only admins can update (approve/reject/pay commission)
       allow update: if isAdmin();

@@ -6,14 +6,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+
+const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || 'ai-studio-bd97f99d-b1b8-4902-ac5c-be804aaceda1';
+const FIREBASE_STORAGE_BUCKET = process.env.VITE_FIREBASE_STORAGE_BUCKET || `${FIREBASE_PROJECT_ID}.appspot.com`;
 
 // Initialize Firebase Admin SDK safely
 if (!getApps().length) {
   try {
-    initializeApp();
+    initializeApp({
+      projectId: FIREBASE_PROJECT_ID,
+      storageBucket: FIREBASE_STORAGE_BUCKET
+    });
   } catch (e) {
     initializeApp({
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'ai-studio-bd97f99d-b1b8-4902-ac5c-be804aaceda1'
+      projectId: FIREBASE_PROJECT_ID,
+      storageBucket: FIREBASE_STORAGE_BUCKET
     });
   }
 }
@@ -63,19 +71,66 @@ async function verifyAdminToken(req: express.Request, res: express.Response, nex
   });
 }
 
+// Helper: Fail-safe Server Price Calculation
+async function getServerValidatedPrice(): Promise<{ validPrice: number; isFlashSale: boolean }> {
+  const DEFAULT_NORMAL_PRICE = 499000;
+  const DEFAULT_PROMO_PRICE = 99000;
+
+  try {
+    const db = getFirestore();
+    const priceDoc = await db.collection('settings').doc('price').get();
+
+    if (!priceDoc.exists) {
+      return { validPrice: DEFAULT_NORMAL_PRICE, isFlashSale: false };
+    }
+
+    const data = priceDoc.data();
+    const normalPrice = typeof data?.normalPrice === 'number' && data.normalPrice > 0 ? data.normalPrice : DEFAULT_NORMAL_PRICE;
+    const promoPrice = typeof data?.promoPrice === 'number' && data.promoPrice > 0 ? data.promoPrice : DEFAULT_PROMO_PRICE;
+    const flashSaleEnabled = data?.flashSaleEnabled === true;
+    const endTimeRaw = data?.endTime;
+
+    // Check endTime presence (non-null, non-empty string)
+    const hasEndTime = endTimeRaw !== null && endTimeRaw !== undefined && String(endTimeRaw).trim() !== '';
+    if (!hasEndTime) {
+      // Never consider flash sale active without endTime!
+      return { validPrice: normalPrice, isFlashSale: false };
+    }
+
+    const endTimeMs = new Date(endTimeRaw).getTime();
+    const isEndTimeValid = !isNaN(endTimeMs);
+    const isEndTimeInFuture = isEndTimeValid && endTimeMs > Date.now();
+
+    const isFlashSaleActive = flashSaleEnabled && hasEndTime && isEndTimeInFuture;
+
+    return {
+      validPrice: isFlashSaleActive ? promoPrice : normalPrice,
+      isFlashSale: isFlashSaleActive
+    };
+  } catch (err) {
+    console.error('getServerValidatedPrice Firestore error:', err);
+    // CRITICAL: On Firestore read error, NEVER fallback to promo price! Fail-safe to normalPrice.
+    return { validPrice: DEFAULT_NORMAL_PRICE, isFlashSale: false };
+  }
+}
+
+const ALLOWED_SHOWCASE_MIMES: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov'
+};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json({ limit: '150mb' }));
   app.use(express.urlencoded({ extended: true, limit: '150mb' }));
-
-  // Ensure uploads directory exists
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  app.use('/uploads', express.static(uploadsDir));
 
   // Initialize Gemini AI
   const ai = new GoogleGenAI({
@@ -95,94 +150,108 @@ async function startServer() {
   // Protected Payment Price Validation Endpoint (Anti-price manipulation)
   app.post("/api/checkout/validate-price", verifyFirebaseToken, async (req, res) => {
     try {
-      const db = getFirestore();
-      const priceDoc = await db.collection('settings').doc('price').get();
-      
-      let normalPrice = 499000;
-      let promoPrice = 99000;
-      let flashSaleEnabled = true;
-      let endTime = null;
-
-      if (priceDoc.exists) {
-        const data = priceDoc.data();
-        normalPrice = data?.normalPrice ?? 499000;
-        promoPrice = data?.promoPrice ?? 99000;
-        flashSaleEnabled = data?.flashSaleEnabled !== false;
-        endTime = data?.endTime;
-      }
-
-      const isFlashSaleValid = flashSaleEnabled && (!endTime || new Date(endTime).getTime() > Date.now());
-      const serverFinalPrice = isFlashSaleValid ? promoPrice : normalPrice;
-
+      const priceResult = await getServerValidatedPrice();
       res.json({
-        validPrice: serverFinalPrice,
-        isFlashSale: isFlashSaleValid,
+        validPrice: priceResult.validPrice,
+        isFlashSale: priceResult.isFlashSale,
         currency: 'IDR',
         productName: 'Akses Lifetime Storyboard AI (5 Studio)'
       });
     } catch (err: any) {
-      console.error('Checkout price validation error:', err);
       res.json({
-        validPrice: 99000,
-        isFlashSale: true,
+        validPrice: 499000,
+        isFlashSale: false,
         currency: 'IDR',
         productName: 'Akses Lifetime Storyboard AI (5 Studio)'
       });
     }
   });
 
-  // Protected Showcase File Upload Endpoint (Requires Admin Authorization + Strict File MIME/Size Validation)
+  // Protected Showcase File Upload Endpoint (Firebase Admin Storage production upload)
   app.post("/api/upload-showcase", verifyAdminToken, async (req, res) => {
     try {
-      const { filename, base64Data, contentType } = req.body;
-      if (!base64Data || !filename) {
-        return res.status(400).json({ error: "Filename and base64Data are required" });
+      const { base64Data, contentType } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ error: "base64Data is required" });
       }
 
-      // Valid MIME type check
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'];
-      if (contentType && !allowedMimes.includes(contentType)) {
-        return res.status(400).json({ error: "Invalid file type. Only images and videos are allowed." });
+      // 1. Validasi MIME type wajib ada & termasuk daftar yang diizinkan
+      if (!contentType || typeof contentType !== 'string' || !contentType.trim()) {
+        return res.status(400).json({ error: "Missing or empty contentType (MIME type)" });
       }
 
-      // Clean base64 header
+      const cleanMime = contentType.trim().toLowerCase();
+      const ext = ALLOWED_SHOWCASE_MIMES[cleanMime];
+
+      if (!ext) {
+        return res.status(400).json({ 
+          error: `Unsupported file type '${contentType}'. Allowed types: image/jpeg, image/png, image/webp, image/gif, video/mp4, video/webm, video/quicktime` 
+        });
+      }
+
+      // 2. Decode base64 payload
       const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
       const buffer = Buffer.from(cleanBase64, 'base64');
 
-      // Max size check: 50MB
+      // 3. Size limit <= 50MB
       if (buffer.length > 50 * 1024 * 1024) {
         return res.status(400).json({ error: "File size exceeds 50MB limit." });
       }
 
-      // Safe randomized filename generation
-      const ext = path.extname(filename) || '.mp4';
-      const safeFilename = `showcase-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-      const filePath = path.join(uploadsDir, safeFilename);
+      // 4. Generate random filename pada server (tanpa mengandalkan extension/nama dari user)
+      const randomHash = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      const safeFilename = `showcase-${randomHash}${ext}`;
+      const storagePath = `showcases/${safeFilename}`;
 
-      await fs.promises.writeFile(filePath, buffer);
+      // 5. Upload ke Firebase Storage via Firebase Admin Storage SDK
+      const bucket = getStorage().bucket(FIREBASE_STORAGE_BUCKET);
+      const fileRef = bucket.file(storagePath);
 
-      const fileUrl = `/uploads/${safeFilename}`;
-      res.json({ url: fileUrl, filename: safeFilename });
+      await fileRef.save(buffer, {
+        metadata: {
+          contentType: cleanMime,
+        },
+        public: true,
+      });
+
+      try {
+        await fileRef.makePublic();
+      } catch (e) {
+        console.warn("fileRef.makePublic note:", e);
+      }
+
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media`;
+
+      res.json({ url: publicUrl, filename: safeFilename, path: storagePath });
     } catch (error: any) {
       console.error("Upload showcase error:", error);
-      res.status(500).json({ error: error.message || "Failed to upload showcase file" });
+      res.status(500).json({ error: error.message || "Failed to upload showcase file to Firebase Storage" });
     }
   });
 
-  // Protected Showcase File Deletion Endpoint (Requires Admin)
+  // Protected Showcase File Deletion Endpoint (Firebase Admin Storage)
   app.delete("/api/delete-showcase-file", verifyAdminToken, async (req, res) => {
     try {
       const { fileUrl } = req.body;
-      if (fileUrl && typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
-        const filename = path.basename(fileUrl);
-        const filePath = path.join(uploadsDir, filename);
-        if (fs.existsSync(filePath)) {
-          await fs.promises.unlink(filePath).catch(() => {});
+      if (fileUrl && typeof fileUrl === 'string') {
+        let fileName = '';
+        if (fileUrl.includes('/showcases/')) {
+          const parts = fileUrl.split('/showcases/');
+          fileName = parts[parts.length - 1].split('?')[0];
+        } else if (fileUrl.includes('showcases%2F')) {
+          const parts = fileUrl.split('showcases%2F');
+          fileName = parts[parts.length - 1].split('?')[0];
+        }
+
+        if (fileName) {
+          const decodedFileName = decodeURIComponent(fileName);
+          const bucket = getStorage().bucket(FIREBASE_STORAGE_BUCKET);
+          await bucket.file(`showcases/${decodedFileName}`).delete().catch(() => {});
         }
       }
       res.json({ success: true });
     } catch (error: any) {
-      res.status(500).json({ error: error.message || "Failed to delete file" });
+      res.status(500).json({ error: error.message || "Failed to delete file from Firebase Storage" });
     }
   });
 
@@ -196,25 +265,9 @@ async function startServer() {
         return res.status(400).json({ error: "Referral code is required" });
       }
 
+      const priceResult = await getServerValidatedPrice();
+      const serverProductPrice = priceResult.validPrice;
       const db = getFirestore();
-      
-      // Fetch server price
-      const priceDoc = await db.collection('settings').doc('price').get();
-      let promoPrice = 99000;
-      let normalPrice = 499000;
-      let flashSaleEnabled = true;
-      let endTime = null;
-
-      if (priceDoc.exists) {
-        const data = priceDoc.data();
-        promoPrice = data?.promoPrice ?? 99000;
-        normalPrice = data?.normalPrice ?? 499000;
-        flashSaleEnabled = data?.flashSaleEnabled !== false;
-        endTime = data?.endTime;
-      }
-
-      const isFlashSaleValid = flashSaleEnabled && (!endTime || new Date(endTime).getTime() > Date.now());
-      const serverProductPrice = isFlashSaleValid ? promoPrice : normalPrice;
 
       // Fixed Server Commission Rate: 40%
       const serverCommissionRate = 40;
