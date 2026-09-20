@@ -110,7 +110,9 @@ export const AdminShowcase: React.FC<AdminShowcaseProps> = ({ showToast }) => {
   };
 
   // Upload helpers
-  const uploadToServer = (file: File): Promise<string> => {
+  const uploadToServer = async (file: File): Promise<string> => {
+    const { auth } = await import('../firebase');
+    const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -118,7 +120,10 @@ export const AdminShowcase: React.FC<AdminShowcaseProps> = ({ showToast }) => {
           const base64Data = reader.result as string;
           const res = await fetch('/api/upload-showcase', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
             body: JSON.stringify({
               filename: file.name,
               base64Data,

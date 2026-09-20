@@ -545,41 +545,19 @@ export default function App() {
       const refCodeToUse = activeReferralCode || (typeof window !== 'undefined' ? localStorage.getItem('neuronan_ref_code') : '');
       if (refCodeToUse) {
         try {
-          // Find affiliate owner of this referral code
-          const affSnap = await getDocs(collection(db, 'affiliates'));
-          let targetAff: (AffiliateProfile & { id: string }) | null = null;
-          affSnap.forEach((d) => {
-            const data = d.data() as AffiliateProfile;
-            if (data.referralCode && data.referralCode.toUpperCase() === refCodeToUse.toUpperCase()) {
-              targetAff = { id: d.id, ...data };
-            }
-          });
-
-          if (targetAff) {
-            const referralRef = doc(collection(db, 'affiliate_referrals'));
-            const referralData: AffiliateReferral = {
-              id: referralRef.id,
-              affiliateId: (targetAff as any).userId || (targetAff as any).id,
-              affiliateCode: refCodeToUse.toUpperCase(),
-              buyerId: uid,
+          const idToken = await userCred.user.getIdToken();
+          await fetch('/api/affiliates/create-referral', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({
+              refCode: refCodeToUse,
               buyerName: regName,
-              buyerEmail: regEmail,
-              productPrice: 99000,
-              commissionRate: 40,
-              commissionAmount: 39600,
-              status: 'pending',
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(referralRef, referralData);
-
-            // Update affiliate pending earnings
-            const currentPending = (targetAff as any).pendingEarnings || 0;
-            const currentTotalClicks = (targetAff as any).totalClicks || 0;
-            await updateDoc(doc(db, 'affiliates', (targetAff as any).id), {
-              pendingEarnings: currentPending + 39600,
-              totalClicks: currentTotalClicks + 1
-            });
-          }
+              buyerEmail: regEmail
+            })
+          });
         } catch (refErr) {
           console.warn('Error recording affiliate referral:', refErr);
         }

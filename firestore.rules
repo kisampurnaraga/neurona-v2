@@ -13,6 +13,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'admin' ||
         request.auth.token.email in ['ia.asep12@gmail.com', 'admin@neuronan.com'] ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
       );
@@ -37,20 +39,19 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
 
       // Anyone can register their own profile.
-      // Enforce proper role/status based on verified email from auth token.
       allow create: if isSignedIn() && request.auth.uid == userId 
         && incoming().namaLengkap is string && incoming().namaLengkap.size() <= 100
         && incoming().email == request.auth.token.email
         && incoming().whatsapp is string && incoming().whatsapp.size() <= 20
         && incoming().whatsapp.matches('^[0-9]+$')
         && (
-          // Standard user registration
+          // Standard user registration must be user/PENDING
           (incoming().role == 'user' && incoming().status == 'PENDING') ||
-          // Default admin registration auto-approval based on auth token
-          ((request.auth.token.email == 'ia.asep12@gmail.com' || request.auth.token.email == 'admin@neuronan.com') && incoming().role == 'admin' && incoming().status == 'ACTIVE')
+          // Admin registration auto-approval based on verified token email
+          (isAdmin() && incoming().role == 'admin' && incoming().status == 'ACTIVE')
         );
 
-      // Users can update their own non-sensitive details; Admins can update any profile.
+      // Users can update non-sensitive fields; Admins can update any profile (e.g. approve status).
       allow update: if isSignedIn() && (
         isAdmin() || (
           request.auth.uid == userId && (
@@ -72,7 +73,7 @@ service cloud.firestore {
     // Settings Collection rules
     match /settings/{settingId} {
       // Anyone can read whatsapp and price settings (for landing page & countdowns)
-      // Authenticated users can read payment settings
+      // Authenticated users can read payment settings & aistudio settings
       allow read: if (settingId == 'whatsapp' || settingId == 'price') || isSignedIn();
 
       // Only Admins can modify settings.
@@ -90,14 +91,13 @@ service cloud.firestore {
 
     // Affiliates Collection rules
     match /affiliates/{affiliateId} {
-      // Anyone can read affiliates (needed for referral link resolution or leaderboard)
-      // Admins and owners can read their full record
+      // Anyone can read basic affiliate profile for referral resolution
       allow read: if true;
 
       // An authenticated user can register their affiliate profile (or admin)
       allow create: if isSignedIn() && (request.auth.uid == affiliateId || isAdmin());
 
-      // Owner can update their bank details/clicks, Admin can update everything (payouts, status)
+      // Owner can update bank details or stats; Admin can update everything
       allow update: if isSignedIn() && (request.auth.uid == affiliateId || isAdmin());
 
       // Admin can delete
@@ -106,15 +106,19 @@ service cloud.firestore {
 
     // Affiliate Referrals Collection rules
     match /affiliate_referrals/{referralId} {
-      // Admins can read and write all referrals
-      // Affiliates can read their own referrals
+      // Admins can read all referrals; Affiliates can read their own referrals
       allow read: if isSignedIn() && (
         isAdmin() || 
-        resource.data.affiliateId == request.auth.uid
+        resource.data.affiliateId == request.auth.uid ||
+        resource.data.buyerUserId == request.auth.uid
       );
 
-      // Authenticated users can create referral transaction when registering, or Admin
-      allow create: if isSignedIn();
+      // Creating a referral requires strict server validation or default safe pending status
+      allow create: if isSignedIn() 
+        && incoming().status == 'pending'
+        && incoming().commissionRate == 40
+        && (incoming().productPrice == 99000 || incoming().productPrice == 499000)
+        && incoming().commissionAmount == (incoming().productPrice * 40 / 100);
 
       // Only admins can update (approve/reject/pay commission)
       allow update: if isAdmin();

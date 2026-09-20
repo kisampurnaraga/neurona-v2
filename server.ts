@@ -36,6 +36,33 @@ async function verifyFirebaseToken(req: express.Request, res: express.Response, 
   }
 }
 
+// Middleware to verify Admin Role server-side
+async function verifyAdminToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  await verifyFirebaseToken(req, res, async () => {
+    const user = (req as any).user;
+    const email = user?.email || '';
+    const isHardcodedAdmin = email === 'ia.asep12@gmail.com' || email === 'admin@neuronan.com';
+    const hasAdminClaim = user?.admin === true || user?.role === 'admin';
+
+    if (isHardcodedAdmin || hasAdminClaim) {
+      return next();
+    }
+
+    // Secondary check: verify role directly in Firestore users collection
+    try {
+      const db = getFirestore();
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      if (userDoc.exists && userDoc.data()?.role === 'admin') {
+        return next();
+      }
+    } catch (e) {
+      console.warn('Admin firestore check error:', e);
+    }
+
+    return res.status(403).json({ error: 'Forbidden: Requiring Administrator privilege' });
+  });
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -65,8 +92,8 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // Server-side Payment Price Validation Endpoint (Anti-price manipulation)
-  app.post("/api/checkout/validate-price", async (req, res) => {
+  // Protected Payment Price Validation Endpoint (Anti-price manipulation)
+  app.post("/api/checkout/validate-price", verifyFirebaseToken, async (req, res) => {
     try {
       const db = getFirestore();
       const priceDoc = await db.collection('settings').doc('price').get();
@@ -104,21 +131,33 @@ async function startServer() {
     }
   });
 
-  // Showcase File Upload Endpoint (fail-safe for Firebase Storage unauthorized errors)
-  app.post("/api/upload-showcase", async (req, res) => {
+  // Protected Showcase File Upload Endpoint (Requires Admin Authorization + Strict File MIME/Size Validation)
+  app.post("/api/upload-showcase", verifyAdminToken, async (req, res) => {
     try {
       const { filename, base64Data, contentType } = req.body;
       if (!base64Data || !filename) {
         return res.status(400).json({ error: "Filename and base64Data are required" });
       }
 
-      const ext = path.extname(filename) || '.mp4';
-      const safeFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-      const filePath = path.join(uploadsDir, safeFilename);
+      // Valid MIME type check
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'];
+      if (contentType && !allowedMimes.includes(contentType)) {
+        return res.status(400).json({ error: "Invalid file type. Only images and videos are allowed." });
+      }
 
-      // Clean base64 header if present (e.g. data:video/mp4;base64,...)
+      // Clean base64 header
       const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
       const buffer = Buffer.from(cleanBase64, 'base64');
+
+      // Max size check: 50MB
+      if (buffer.length > 50 * 1024 * 1024) {
+        return res.status(400).json({ error: "File size exceeds 50MB limit." });
+      }
+
+      // Safe randomized filename generation
+      const ext = path.extname(filename) || '.mp4';
+      const safeFilename = `showcase-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
+      const filePath = path.join(uploadsDir, safeFilename);
 
       await fs.promises.writeFile(filePath, buffer);
 
@@ -130,7 +169,8 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/delete-showcase-file", async (req, res) => {
+  // Protected Showcase File Deletion Endpoint (Requires Admin)
+  app.delete("/api/delete-showcase-file", verifyAdminToken, async (req, res) => {
     try {
       const { fileUrl } = req.body;
       if (fileUrl && typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
@@ -146,8 +186,84 @@ async function startServer() {
     }
   });
 
-  // Fetch video metadata (e.g. TikTok oEmbed thumbnail)
-  app.get("/api/video-metadata", async (req, res) => {
+  // Protected Server-Side Referral Creation Endpoint (Anti-commission manipulation)
+  app.post("/api/affiliates/create-referral", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { refCode, buyerName, buyerEmail } = req.body;
+
+      if (!refCode) {
+        return res.status(400).json({ error: "Referral code is required" });
+      }
+
+      const db = getFirestore();
+      
+      // Fetch server price
+      const priceDoc = await db.collection('settings').doc('price').get();
+      let promoPrice = 99000;
+      let normalPrice = 499000;
+      let flashSaleEnabled = true;
+      let endTime = null;
+
+      if (priceDoc.exists) {
+        const data = priceDoc.data();
+        promoPrice = data?.promoPrice ?? 99000;
+        normalPrice = data?.normalPrice ?? 499000;
+        flashSaleEnabled = data?.flashSaleEnabled !== false;
+        endTime = data?.endTime;
+      }
+
+      const isFlashSaleValid = flashSaleEnabled && (!endTime || new Date(endTime).getTime() > Date.now());
+      const serverProductPrice = isFlashSaleValid ? promoPrice : normalPrice;
+
+      // Fixed Server Commission Rate: 40%
+      const serverCommissionRate = 40;
+      const serverCommissionAmount = Math.round((serverProductPrice * serverCommissionRate) / 100);
+
+      // Find affiliate record server-side
+      const affSnap = await db.collection('affiliates').where('referralCode', '==', refCode.toUpperCase()).get();
+      if (affSnap.empty) {
+        return res.status(404).json({ error: "Affiliate referral code not found" });
+      }
+
+      const affDoc = affSnap.docs[0];
+      const affData = affDoc.data();
+
+      const referralRef = db.collection('affiliate_referrals').doc();
+      const newReferral = {
+        id: referralRef.id,
+        affiliateId: affData.userId || affDoc.id,
+        affiliateCode: refCode.toUpperCase(),
+        buyerUserId: user.uid,
+        buyerId: user.uid,
+        buyerName: buyerName || user.name || 'User',
+        buyerEmail: buyerEmail || user.email || '',
+        productPrice: serverProductPrice,
+        commissionRate: serverCommissionRate,
+        commissionAmount: serverCommissionAmount,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      await referralRef.set(newReferral);
+
+      // Update affiliate stats
+      const currentPending = affData.pendingEarnings || 0;
+      const currentClicks = affData.totalClicks || 0;
+      await affDoc.ref.update({
+        pendingEarnings: currentPending + serverCommissionAmount,
+        totalClicks: currentClicks + 1
+      });
+
+      res.json({ success: true, referral: newReferral });
+    } catch (e: any) {
+      console.error("Create referral error:", e);
+      res.status(500).json({ error: e.message || "Failed to create referral" });
+    }
+  });
+
+  // Protected Video Metadata Endpoint
+  app.get("/api/video-metadata", verifyFirebaseToken, async (req, res) => {
     try {
       const url = req.query.url as string;
       if (!url) {
@@ -178,7 +294,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/generate-caption", async (req, res) => {
+  app.post("/api/generate-caption", verifyFirebaseToken, async (req, res) => {
     try {
       if (!process.env.GEMINI_API_KEY) {
         throw new Error('GEMINI_API_KEY environment variable is required');
@@ -223,7 +339,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/generate-storyboard", async (req, res) => {
+  app.post("/api/generate-storyboard", verifyFirebaseToken, async (req, res) => {
     try {
       if (!process.env.GEMINI_API_KEY) {
         throw new Error('GEMINI_API_KEY environment variable is required');
