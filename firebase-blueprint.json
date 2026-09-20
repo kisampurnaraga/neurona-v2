@@ -56,6 +56,49 @@
         }
       },
       "required": ["bankName", "accountNumber", "accountHolder"]
+    },
+    "Affiliate": {
+      "title": "Affiliate Profile",
+      "description": "Affiliate registration and performance metrics.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userWhatsapp": { "type": "string" },
+        "referralCode": { "type": "string" },
+        "commissionRate": { "type": "number" },
+        "productPrice": { "type": "number" },
+        "totalClicks": { "type": "number" },
+        "totalReferrals": { "type": "number" },
+        "successfulSales": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "pendingEarnings": { "type": "number" },
+        "withdrawnEarnings": { "type": "number" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "accountHolder": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "userName", "userEmail", "referralCode", "commissionRate"]
+    },
+    "AffiliateReferral": {
+      "title": "Affiliate Referral Record",
+      "description": "Log of user registrations referred by an affiliate.",
+      "type": "object",
+      "properties": {
+        "affiliateId": { "type": "string" },
+        "affiliateCode": { "type": "string" },
+        "buyerUserId": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "buyerEmail": { "type": "string" },
+        "productPrice": { "type": "number" },
+        "commissionAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["affiliateId", "affiliateCode", "buyerUserId", "commissionAmount", "status"]
     }
   },
   "firestore": {
@@ -66,6 +109,14 @@
     "/settings/{settingId}": {
       "schema": "PaymentSetting",
       "description": "Admin configurations such as bank account credentials."
+    },
+    "/affiliates/{affiliateId}": {
+      "schema": "Affiliate",
+      "description": "Affiliate profile records indexed by UID."
+    },
+    "/affiliate_referrals/{referralId}": {
+      "schema": "AffiliateReferral",
+      "description": "Referral transactions and commission logs."
     }
   }
 }

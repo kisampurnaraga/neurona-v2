@@ -1,17 +1,22 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({ limit: '150mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '150mb' }));
+
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
 
   // Initialize Gemini AI
   const ai = new GoogleGenAI({
@@ -28,6 +33,80 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Showcase File Upload Endpoint (fail-safe for Firebase Storage unauthorized errors)
+  app.post("/api/upload-showcase", async (req, res) => {
+    try {
+      const { filename, base64Data, contentType } = req.body;
+      if (!base64Data || !filename) {
+        return res.status(400).json({ error: "Filename and base64Data are required" });
+      }
+
+      const ext = path.extname(filename) || '.mp4';
+      const safeFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
+      const filePath = path.join(uploadsDir, safeFilename);
+
+      // Clean base64 header if present (e.g. data:video/mp4;base64,...)
+      const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(cleanBase64, 'base64');
+
+      await fs.promises.writeFile(filePath, buffer);
+
+      const fileUrl = `/uploads/${safeFilename}`;
+      res.json({ url: fileUrl, filename: safeFilename });
+    } catch (error: any) {
+      console.error("Upload showcase error:", error);
+      res.status(500).json({ error: error.message || "Failed to upload showcase file" });
+    }
+  });
+
+  app.delete("/api/delete-showcase-file", async (req, res) => {
+    try {
+      const { fileUrl } = req.body;
+      if (fileUrl && typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
+        const filename = path.basename(fileUrl);
+        const filePath = path.join(uploadsDir, filename);
+        if (fs.existsSync(filePath)) {
+          await fs.promises.unlink(filePath).catch(() => {});
+        }
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete file" });
+    }
+  });
+
+  // Fetch video metadata (e.g. TikTok oEmbed thumbnail)
+  app.get("/api/video-metadata", async (req, res) => {
+    try {
+      const url = req.query.url as string;
+      if (!url) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+
+      if (url.includes("tiktok.com")) {
+        try {
+          const oembedRes = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+          });
+          if (oembedRes.ok) {
+            const data: any = await oembedRes.json();
+            return res.json({
+              thumbnailUrl: data.thumbnail_url || '',
+              title: data.title || '',
+              author: data.author_name || ''
+            });
+          }
+        } catch (err) {
+          console.warn("TikTok oembed fetch error:", err);
+        }
+      }
+
+      res.json({ thumbnailUrl: '' });
+    } catch (e: any) {
+      res.json({ thumbnailUrl: '' });
+    }
+  });
+
   app.post("/api/generate-caption", async (req, res) => {
     try {
       if (!process.env.GEMINI_API_KEY) {
@@ -38,16 +117,18 @@ async function startServer() {
       
       let prompt = '';
       if (studioType === 'film') {
-        prompt = `Buatkan 1 sinopsis/caption promosi singkat (ala trailer film) untuk film pendek berjudul "${safeName}". Gunakan nada yang menegangkan atau dramatis, tergantung judulnya. Sertakan hashtag #ShortFilm #Sinema.`;
-      } else if (studioType === 'education') {
-        prompt = `Buatkan 1 caption edukatif yang menginspirasi untuk materi/kursus berjudul "${safeName}". Gunakan nada yang profesional namun ramah. Sertakan hashtag #Edukasi #Belajar.`;
-      } else if (studioType === 'ads') {
-        prompt = `Buatkan 1 script copywriting iklan (Ads) hard-selling untuk produk "${safeName}". Fokus pada hook, pain points, dan Call to Action. Sertakan hashtag yang relevan.`;
+        prompt = `Buatkan 1 sinopsis/caption promosi singkat (ala trailer film bioskop) untuk film berjudul "${safeName}". Gunakan nada yang menegangkan, epik, atau dramatis. Sertakan hashtag #ShortFilm #Sinema #FilmIndo.`;
+      } else if (studioType === 'animasi') {
+        prompt = `Buatkan 1 caption cerita animasi atau kartun yang seru dan menggemaskan untuk animasi berjudul "${safeName}". Gunakan bahasa yang imajinatif dan menarik untuk penonton keluarga/anak muda. Sertakan hashtag #Animasi #3DAnimation #Kartun.`;
+      } else if (studioType === 'edukasi') {
+        prompt = `Buatkan 1 caption edukasi micro-learning yang ringkas, berbobot, dan menginspirasi untuk topik "${safeName}". Berikan 3 poin intisari singkat. Sertakan hashtag #Edukasi #Belajar #TipsBerguna.`;
+      } else if (studioType === 'podcast') {
+        prompt = `Buatkan 1 caption cuplikan podcast/talkshow yang memancing rasa penasaran untuk episode "${safeName}". Sorot kutipan (quote) menarik dari dialog. Sertakan hashtag #Podcast #Talkshow #Inspirasi.`;
       } else {
         if (mode === 'ugc') {
-          prompt = `Buatkan 1 caption TikTok gaya amatir/UGC (User Generated Content) yang terlihat seperti review jujur konsumen biasa untuk produk "${safeName}". Gunakan bahasa gaul, typo sedikit tidak apa-apa, sangat natural dan terkesan 'spill' rahasia. Sertakan hashtag populer.`;
+          prompt = `Buatkan 1 caption TikTok gaya amatir/UGC (User Generated Content) yang terlihat seperti review jujur konsumen biasa untuk produk "${safeName}". Gunakan bahasa gaul, typo sedikit tidak apa-apa, sangat natural dan terkesan 'spill' rahasia. Sertakan hashtag populer #RacunTikTok #SpillProduk.`;
         } else {
-          prompt = `Buatkan 1 caption TikTok yang sangat engaging, viral, dan persuasif bergaya kreator profesional untuk mempromosikan produk "${safeName}". Gunakan bahasa gaul Indonesia yang natural. Sertakan hashtag seperti #RacunTikTok dan hashtag produk. Jangan gunakan tanda kutip di awal/akhir kalimat.`;
+          prompt = `Buatkan 1 caption TikTok Shop / Affiliate yang sangat engaging, viral, dan persuasif untuk mempromosikan produk "${safeName}". Gunakan hook mematikan dan Call To Action beli sekarang di keranjang kuning. Sertakan hashtag #RacunTikTok #AffiliateTikTok.`;
         }
       }
 
@@ -95,16 +176,19 @@ async function startServer() {
 
       let directorContext = '';
       if (studioType === 'film') {
-        directorContext = 'You are a visionary film director creating a storyboard for a cinematic short film or trailer. Focus on dramatic lighting, narrative tension, and cinematic composition.';
-      } else if (studioType === 'education') {
-        directorContext = 'You are an educational video producer creating a storyboard for a professional course or tutorial. Focus on clear visibility, engaging presenter framing, and clean studio lighting.';
-      } else if (studioType === 'ads') {
-        directorContext = 'You are a high-end commercial director creating a storyboard for a premium video ad. Focus on product hero shots, aspirational lifestyle, and high-conversion visual hooks.';
+        directorContext = 'You are a visionary Hollywood cinematic director creating a storyboard for an 8K widescreen movie or dramatic short film. Focus on 21:9 or 16:9 anamorphic framing, intense contrast lighting, high cinematic stakes, and Hollywood camera motion.';
+      } else if (studioType === 'animasi') {
+        directorContext = 'You are an acclaimed 3D/2D animation director (Pixar/Disney/Anime style) creating a character storyboard. Focus on consistent character appeal, vibrant expressive lighting, whimsical fantasy or playful cartoon elements, and clear narrative beats.';
+      } else if (studioType === 'edukasi') {
+        directorContext = 'You are an elite educational video producer creating a storyboard for a high-retention tutorial or micro-learning explainer. Focus on clear presenter visual aids, engaging graphic infography, step-by-step logic, and bright, clean studio lighting.';
+      } else if (studioType === 'podcast') {
+        directorContext = 'You are an experienced talkshow and podcast director creating a multi-camera storyboard for a deep conversation. Focus on dynamic multi-angle cuts (Host Close-Up, Guest Close-Up, Wide Studio Shot), warm cozy acoustic studio backdrop, Shure SM7B microphones, and emotionally resonant facial expressions.';
       } else {
+        // affiliate & ecommerce default
         if (mode === 'ugc') {
-          directorContext = 'You are a TikTok UGC (User Generated Content) creator making a casual, authentic, and slightly amateurish review video. Focus on shaky handheld smartphone shots, natural everyday lighting, and a highly relatable, non-staged aesthetic.';
+          directorContext = 'You are a viral TikTok UGC (User Generated Content) affiliate creator making a casual, authentic, and unfiltered review video. Focus on genuine smartphone camera aesthetics, natural bedroom/office lighting, real-life unboxing, and an irresistibly relatable problem-to-solution hook.';
         } else {
-          directorContext = 'You are a professional commercial video director creating a storyboard for a high-quality TikTok/Reels product promotion. Focus on polished aesthetics, professional lighting, and strong product focus.';
+          directorContext = 'You are a professional commercial e-commerce video director creating a high-converting storyboard for TikTok Shop & Shopee Affiliate. Focus on a 3-second scroll-stopping visual hook, dramatic product macro shots, sparkling highlights, and irresistible Call to Action.';
         }
       }
 

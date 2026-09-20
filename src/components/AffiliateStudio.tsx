@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
   User, 
@@ -21,7 +21,12 @@ import {
   Share2,
   Maximize2,
   BrainCircuit,
-  Smartphone
+  Smartphone,
+  Zap,
+  ShoppingBag,
+  Mic,
+  BookOpen,
+  Clapperboard
 } from 'lucide-react';
 import { 
   AspectRatio, 
@@ -29,13 +34,118 @@ import {
   PhotoLayout, 
   ShotType, 
   StoryboardProject, 
-  StoryboardSceneItem 
+  StoryboardSceneItem,
+  StudioCategory
 } from '../types';
 import { VideoGenerationModal } from './VideoGenerationModal';
+import { ExportPromptModal } from './ExportPromptModal';
+
+export interface StudioConfigItem {
+  id: StudioCategory;
+  label: string;
+  name: string;
+  subtitle: string;
+  tag: string;
+  defaultTitle: string;
+  defaultPose: string;
+  defaultCamera: CameraType;
+  defaultAspectRatio: AspectRatio;
+  subjectLabel: string;
+  subjectHint: string;
+  placeholderSubject: string;
+  captionLabel: string;
+  icon: any;
+}
+
+export const STUDIO_CONFIGS: Record<StudioCategory, StudioConfigItem> = {
+  affiliate: {
+    id: 'affiliate',
+    label: 'Studio Affiliate',
+    name: 'Studio Affiliate AI',
+    subtitle: 'Generator Video Promosi TikTok Shop, Shopee Affiliate & Reels',
+    tag: 'Affiliate & E-Commerce',
+    defaultTitle: 'Parfum Black Oud Lonkoom',
+    defaultPose: 'Pria tersenyum sedang unboxing dan menyemprotkan botol parfum Black Oud di depan jendela pencahayaan softbox',
+    defaultCamera: 'Smartphone',
+    defaultAspectRatio: '9:16',
+    subjectLabel: 'Foto Produk (Wajib)',
+    subjectHint: 'Unggah foto produk e-commerce',
+    placeholderSubject: 'Contoh: Parfum Black Oud Lonkoom / Serum Wajah',
+    captionLabel: 'CAPTION TIKTOK SHOP / AFFILIATE AI',
+    icon: ShoppingBag
+  },
+  animasi: {
+    id: 'animasi',
+    label: 'Studio Animasi',
+    name: 'Studio Animasi & Kartun AI',
+    subtitle: 'Generator Karakter Konsisten 3D/2D, Anime & Cerita Fabel Fantasi',
+    tag: 'Animasi & Kartun',
+    defaultTitle: 'Petualangan Kancil & Rubah Ajaib',
+    defaultPose: 'Karakter rubah oranye 3D berbulu halus sedang menunjuk ke arah peta kuno berpendar di tengah hutan magis',
+    defaultCamera: 'Cinematic',
+    defaultAspectRatio: '9:16',
+    subjectLabel: 'Referensi Karakter / Aktor (Wajib)',
+    subjectHint: 'Unggah referensi gaya kartun / karakter',
+    placeholderSubject: 'Contoh: Petualangan Kancil & Rubah Ajaib / Karakter Anime',
+    captionLabel: 'SINOPSIS & DIALOG ANIMASI AI',
+    icon: Sparkles
+  },
+  edukasi: {
+    id: 'edukasi',
+    label: 'Studio Edukasi',
+    name: 'Studio Edukasi & Tutorial AI',
+    subtitle: 'Generator Konten Edukasi, Sains, Infografis & Fakta Menarik',
+    tag: 'Edukasi & Tutorial',
+    defaultTitle: '5 Pola Pikir Finansial Sebelum Usia 30',
+    defaultPose: 'Host muda rapi sedang menjelaskan grafik pertumbuhan tabungan dengan ilustrasi koin emas mengambang di layar',
+    defaultCamera: 'DSLR',
+    defaultAspectRatio: '9:16',
+    subjectLabel: 'Visual Materi / Presenter (Wajib)',
+    subjectHint: 'Unggah foto presenter atau visual diagram',
+    placeholderSubject: 'Contoh: 5 Pola Pikir Finansial / Tutorial Coding React',
+    captionLabel: 'HOOK & RANGKUMAN EDUKASI AI',
+    icon: BookOpen
+  },
+  podcast: {
+    id: 'podcast',
+    label: 'Studio Podcast',
+    name: 'Studio Podcast & Talkshow AI',
+    subtitle: 'Generator Percakapan 2 Orang, Multi-Angle Camera & Kutipan Viral',
+    tag: 'Podcast & Talkshow',
+    defaultTitle: 'Bincang Bisnis: Membangun Startup dari Nol',
+    defaultPose: 'Dua pembicara duduk di sofa studio warm lighting menghadap mic Shure SM7B dengan ekspresi diskusi seru',
+    defaultCamera: 'Cinematic',
+    defaultAspectRatio: '16:9',
+    subjectLabel: 'Foto Setup Studio / Host (Wajib)',
+    subjectHint: 'Unggah referensi foto host atau ruang podcast',
+    placeholderSubject: 'Contoh: Obrolan Founder Sukses / Wawancara Inspiratif',
+    captionLabel: 'PUNCHLINE & KUTIPAN PODCAST AI',
+    icon: Mic
+  },
+  film: {
+    id: 'film',
+    label: 'Studio Film',
+    name: 'Studio Film Sinematik 8K AI',
+    subtitle: 'Generator Skenario Sinema Layar Lebar Hollywood & Short Movie',
+    tag: 'Sinematik & Short Movie',
+    defaultTitle: 'Cyberpunk 2099: Pelarian di Bawah Hujan Neon',
+    defaultPose: 'Detektif bertubuh tegap dalam mantel basah menatap gedung pencakar langit kota masa depan dengan pantulan neon ungu dan cyan',
+    defaultCamera: 'Cinematic',
+    defaultAspectRatio: '21:9',
+    subjectLabel: 'Pemeran Utama / Moodboard (Wajib)',
+    subjectHint: 'Unggah foto karakter aktor atau palet warna film',
+    placeholderSubject: 'Contoh: Film Action Cyberpunk / Thriller Sinematik',
+    captionLabel: 'SINOPSIS TRAILER BIOSKOP AI',
+    icon: Clapperboard
+  }
+};
+
+const STUDIO_ORDER: StudioCategory[] = ['affiliate', 'animasi', 'edukasi', 'podcast', 'film'];
 
 interface AffiliateStudioProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
-  studioType?: 'affiliate' | 'film' | 'education' | 'ads';
+  studioType?: StudioCategory;
+  onSelectStudioType?: (type: StudioCategory) => void;
 }
 
 const SHOT_OPTIONS: ShotType[] = [
@@ -51,29 +161,52 @@ const SHOT_OPTIONS: ShotType[] = [
   'Macro Shot',
 ];
 
-export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, studioType = 'affiliate' }) => {
+export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ 
+  showToast, 
+  studioType = 'affiliate',
+  onSelectStudioType 
+}) => {
+  // Active Studio selection
+  const [currentStudio, setCurrentStudio] = useState<StudioCategory>(studioType);
+  const activeStudioConfig = STUDIO_CONFIGS[currentStudio] || STUDIO_CONFIGS.affiliate;
+
   // Mode tabs
   const [activeTab, setActiveTab] = useState<'studio' | 'ugc'>('studio');
 
   // Form states
-  const [productName, setProductName] = useState(
-    studioType === 'film' ? 'Film Action Cyberpunk' : 
-    studioType === 'education' ? 'Kursus Coding React' :
-    studioType === 'ads' ? 'Promo Sepatu Sneaker' :
-    'Parfum Black Oud Lonkoom'
-  );
+  const [productName, setProductName] = useState(activeStudioConfig.defaultTitle);
   const [productImages, setProductImages] = useState<string[]>([]);
   const [modelImage, setModelImage] = useState<string>('');
 
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(activeStudioConfig.defaultAspectRatio);
   const [shotType, setShotType] = useState<ShotType>('Mix (Variasi Shot)');
   const [showShotModal, setShowShotModal] = useState(false);
-  const [cameraType, setCameraType] = useState<CameraType>('Smartphone (iPhone)');
+  const [cameraType, setCameraType] = useState<CameraType>(activeStudioConfig.defaultCamera);
   const [clothingType, setClothingType] = useState<'default' | 'custom'>('default');
   const [customClothing, setCustomClothing] = useState('Kaos kasual warna hitam');
   const [layout, setLayout] = useState<PhotoLayout>('grid');
   const [imageCount, setImageCount] = useState<number>(4);
-  const [interactionPose, setInteractionPose] = useState('Pria tersenyum sedang menyemprotkan dan memegang parfum Black Oud di depan jendela');
+  const [interactionPose, setInteractionPose] = useState(activeStudioConfig.defaultPose);
+
+  // Sync prop changes
+  useEffect(() => {
+    if (studioType && studioType !== currentStudio) {
+      handleSwitchStudio(studioType as StudioCategory);
+    }
+  }, [studioType]);
+
+  const handleSwitchStudio = (newStudio: StudioCategory) => {
+    setCurrentStudio(newStudio);
+    const cfg = STUDIO_CONFIGS[newStudio] || STUDIO_CONFIGS.affiliate;
+    setProductName(cfg.defaultTitle);
+    setInteractionPose(cfg.defaultPose);
+    setCameraType(cfg.defaultCamera);
+    setAspectRatio(cfg.defaultAspectRatio);
+    if (onSelectStudioType) {
+      onSelectStudioType(newStudio);
+    }
+    showToast(`Beralih ke ${cfg.label}`, 'info');
+  };
 
   // Generation & Results
   const [isGenerating, setIsGenerating] = useState(false);
@@ -83,6 +216,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
   // Modals
   const [activeVideoScene, setActiveVideoScene] = useState<StoryboardSceneItem | null>(null);
   const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
+  const [showExportPromptModal, setShowExportPromptModal] = useState(false);
   const [tiktokCaption, setTiktokCaption] = useState<string>('');
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
@@ -94,7 +228,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
     setModelImage('');
     setInteractionPose('');
     setShotType('Mix (Variasi Shot)');
-    setCameraType('Smartphone (iPhone)');
+    setCameraType('Smartphone');
     setLayout('grid');
     setImageCount(4);
     setProjectResult(null);
@@ -138,7 +272,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
       const response = await fetch('/api/generate-caption', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productName: pName, mode: activeTab, studioType })
+        body: JSON.stringify({ productName: pName, mode: activeTab, studioType: currentStudio })
       });
       
       if (!response.ok) {
@@ -194,7 +328,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
           interaction: interactionPose,
           count,
           mode: activeTab,
-          studioType
+          studioType: currentStudio
         })
       });
 
@@ -257,7 +391,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-slate-800 tracking-tight">NEURONA+</span>
+                <span className="text-lg font-black text-slate-800 tracking-tight">{activeStudioConfig.name}</span>
                 <span className="px-2 py-0.5 bg-amber-500 text-white font-black text-[10px] rounded-md tracking-wider">
                   V2.9.1 LITE
                 </span>
@@ -265,7 +399,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
                   Akses Gratis Member
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">Studio Produksi Storyboard & Affiliate AI</p>
+              <p className="text-xs text-slate-500 mt-0.5">{activeStudioConfig.subtitle}</p>
             </div>
           </div>
 
@@ -277,6 +411,40 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
             <RotateCcw className="w-3.5 h-3.5" />
             <span>MULAI BARU</span>
           </button>
+        </div>
+
+        {/* 5-Studio Suite Selector Tabs */}
+        <div className="pt-4 border-b border-slate-100 pb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+              Pilih Studio Spesialis (5-Studio AI Suite)
+            </span>
+            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+              {activeStudioConfig.tag}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {STUDIO_ORDER.map((sKey) => {
+              const cfg = STUDIO_CONFIGS[sKey];
+              const IconComp = cfg.icon;
+              const isSelected = currentStudio === sKey;
+              return (
+                <button
+                  key={sKey}
+                  type="button"
+                  onClick={() => handleSwitchStudio(sKey)}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs transition-all text-left ${
+                    isSelected
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/60'
+                  }`}
+                >
+                  <IconComp className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
+                  <span className="truncate">{cfg.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Tab Switcher: AI Studio / Bypass UGC */}
@@ -329,11 +497,11 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
           <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-5 sm:p-6 space-y-5">
             {/* 1. Upload Boxes: Foto Produk (Wajib) & Wajah Model (Opsi) */}
             <div className="grid grid-cols-2 gap-3">
-              {/* Foto Produk */}
+              {/* Foto Produk / Subjek */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
                   <ImageIcon className="w-3 h-3 text-blue-600" />
-                  <span>Foto Produk (Wajib)</span>
+                  <span>{activeStudioConfig.subjectLabel}</span>
                 </label>
                 <label className="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all h-36 relative overflow-hidden group">
                   <input
@@ -359,7 +527,9 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
                         <Upload className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-bold text-slate-700">Upload</span>
-                      <span className="text-[10px] text-slate-400">Produk (Multi)</span>
+                      <span className="text-[10px] text-slate-400 text-center px-1 truncate max-w-full">
+                        {activeStudioConfig.subjectHint}
+                      </span>
                     </>
                   )}
                 </label>
@@ -408,7 +578,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
                 type="text"
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder="Nama/Jenis Produk (Contoh: Parfum Black Oud)"
+                placeholder={activeStudioConfig.placeholderSubject}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
               />
             </div>
@@ -418,12 +588,7 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-cyan-900 flex items-center gap-1.5 uppercase">
                   <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-                  <span>
-                    {studioType === 'film' ? 'SINOPSIS TRAILER AI' : 
-                     studioType === 'education' ? 'HOOK EDUKASI AI' : 
-                     studioType === 'ads' ? 'SCRIPT IKLAN AI' : 
-                     'CAPTION TIKTOK AI'}
-                  </span>
+                  <span>{activeStudioConfig.captionLabel}</span>
                 </span>
                 <button
                   type="button"
@@ -764,6 +929,33 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
                   </button>
                 </div>
 
+                {/* 1-Click Export Prompt Button (Prominent Feature) */}
+                <div className="bg-gradient-to-r from-blue-900/90 via-slate-900 to-indigo-950 p-4 rounded-2xl border border-cyan-500/40 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+                        <Zap className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-white tracking-wide">1-CLICK EXPORT PROMPT</h4>
+                        <p className="text-[10px] text-cyan-300">Google Flow, Gemini Chat, Kling AI & Runway</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-cyan-950 text-cyan-400 text-[10px] font-bold rounded-full border border-cyan-500/30">
+                      Instan
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowExportPromptModal(true)}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 hover:from-blue-500 hover:to-cyan-300 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 hover:scale-[1.01]"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Ekspor Prompt Video Siap Pakai ({projectResult.scenes.length} Scene)</span>
+                  </button>
+                </div>
+
                 {/* Video Generation Quick Buttons per Scene */}
                 <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
@@ -877,6 +1069,19 @@ export const AffiliateStudio: React.FC<AffiliateStudioProps> = ({ showToast, stu
           productName={projectResult?.productName || productName}
           onClose={() => setActiveVideoScene(null)}
           showToast={showToast}
+        />
+      )}
+
+      {/* 1-Click Export Prompt Modal */}
+      {projectResult && (
+        <ExportPromptModal
+          isOpen={showExportPromptModal}
+          onClose={() => setShowExportPromptModal(false)}
+          productName={projectResult.productName || productName}
+          scenes={projectResult.scenes}
+          aspectRatio={projectResult.aspectRatio || aspectRatio}
+          cameraType={projectResult.cameraType || cameraType}
+          onCopySuccess={(msg) => showToast(msg, 'success')}
         />
       )}
     </div>

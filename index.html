@@ -3,12 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neurona - Suite Produksi Konten AI & Studio Affiliate</title>
-    <meta name="description" content="Suite Produksi Konten AI & Studio Affiliate — Video, Storyboard & Script dalam satu dashboard" />
-    <meta property="og:title" content="Neurona - Suite Produksi Konten AI & Studio Affiliate" />
-    <meta property="og:description" content="Suite Produksi Konten AI & Studio Affiliate — Video, Storyboard & Script dalam satu dashboard" />
+    <title>Neurona - Aplikasi AI Penghasil Storyboard Sinematik (Sekali Bayar Seumur Hidup)</title>
+    <meta name="description" content="Aplikasi AI Penghasil Storyboard Sinematik — Sekali Bayar Seumur Hidup Rp 99.000 Promo Terbatas" />
+    <meta property="og:title" content="Neurona - Aplikasi AI Penghasil Storyboard Sinematik (Sekali Bayar Seumur Hidup)" />
+    <meta property="og:description" content="Aplikasi AI Penghasil Storyboard Sinematik — Sekali Bayar Seumur Hidup Rp 99.000 Promo Terbatas" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Suppress benign third-party browser extension errors (e.g. MetaMask, Web3 wallet injection)
+      (function() {
+        function isExtensionError(msg, src) {
+          if (!msg && !src) return false;
+          var str = (String(msg) + ' ' + String(src)).toLowerCase();
+          return (
+            str.indexOf('metamask') !== -1 ||
+            str.indexOf('ethereum') !== -1 ||
+            str.indexOf('chrome-extension://') !== -1 ||
+            str.indexOf('moz-extension://') !== -1 ||
+            str.indexOf('safari-extension://') !== -1 ||
+            str.indexOf('evm') !== -1
+          );
+        }
+
+        window.addEventListener('error', function(event) {
+          if (isExtensionError(event.message, event.filename)) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = event.reason;
+          var message = (reason && (reason.message || reason.stack || String(reason))) || '';
+          if (isExtensionError(message)) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
