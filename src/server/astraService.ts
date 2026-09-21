@@ -1,12 +1,14 @@
 import OpenAI from 'openai';
-import { ContentOpportunity, ContentPlan, LearningPattern, MonetizationIntelligenceData } from '../types/creatorAutopilot.js';
+import { ContentOpportunity, ContentPlan, LearningPattern, MonetizationIntelligenceData, YouTubeChannelInfo } from '../types/creatorAutopilot.js';
 import { FounderService } from './founderService.js';
+import { YouTubeService, YouTubeTokenData } from './youtubeService.js';
 
 export interface AstraResearchParams {
   niche: string;
   targetAudience?: string;
   seedTopic?: string;
   monetizationGoal?: string;
+  tokens?: YouTubeTokenData;
 }
 
 class AstraServiceClass {
@@ -39,34 +41,39 @@ class AstraServiceClass {
       throw new Error('Astra AI Engine belum aktif atau API Key belum diset. Silakan atur API Key di menu Admin Astra Settings.');
     }
 
+    // Search YouTube Data API for real-time evidence
+    const youtubeEvidence = await YouTubeService.searchTrendingEvidence(`${niche} ${seed}`, params.tokens);
+    const timestampStr = new Date().toISOString();
+
     try {
       const prompt = `You are GPT Astra, the AI Content & Growth Intelligence Engine for YouTube Shorts.
 Conduct deep trend research for niche: "${niche}", target audience: "${audience}", seed topic: "${seed}".
-Generate 3 distinct YouTube Shorts Content Opportunities in JSON format.
+Ground truth YouTube API search evidence: "${youtubeEvidence.evidenceText}". Sample titles found: ${JSON.stringify(youtubeEvidence.sampleTitles)}.
+
+Generate 3 distinct YouTube Shorts Content Opportunities in JSON format based on actual analysis.
 
 Constraints:
-- Use realistic probability language ("Probability High - 80% Match", "High Engagement Opportunity").
-- NEVER guarantee exact viral views or revenue numbers.
-- Each opportunity must contain:
-  - topic
-  - niche
-  - hook (0-3 second hook idea)
-  - angle (psychological framing)
-  - targetAudience
+- Use realistic probability language ("Probability High - 80% Engagement Match", "High Engagement Opportunity").
+- NEVER guarantee fake exact viral views or fake revenue numbers.
+- Each opportunity MUST contain:
+  - topic (string)
+  - niche (string)
+  - hook (0-3 second hook idea, string)
+  - angle (psychological framing, string)
+  - targetAudience (string)
   - titleIdeas (array of 3 punchy titles)
-  - contentFormat (e.g. "Pov / Screen Demo", "AIDA Unboxing", "Talking Head + Visual B-Roll")
-  - estimatedOpportunity (e.g. "Estimated Opportunity: High Virality Index")
-  - monetizationAngle (e.g. "Affiliate Product Link in Bio", "Sponsorship Pitch", "Digital Course Upsell")
+  - contentFormat (string)
+  - estimatedOpportunity (string)
+  - monetizationAngle (string)
   - priority ("HIGH" | "MEDIUM" | "LOW")
-  - source (e.g. "Astra Trend & Competitor Analysis")
+  - source (string, e.g. "YouTube Data API v3 & Astra Intelligence")
+  - evidence (string, factual evidence string referencing YouTube search/trends)
+  - confidence (string, e.g. "85% High Confidence")
 
-Return ONLY a valid JSON array of 3 objects with those keys. No markdown codeblock wrapper if possible.`;
-
-      // Use the model configured by Admin without forcefully mapping gpt-6-astra to gpt-4o
-      const modelToUse = model || 'gpt-6-astra';
+Return ONLY a valid JSON array of 3 objects with those exact keys.`;
 
       const response = await openai.chat.completions.create({
-        model: modelToUse,
+        model: model || 'gpt-6-astra',
         messages: [{ role: 'system', content: prompt }],
         temperature: 0.7,
         max_tokens: 1500,
@@ -82,16 +89,19 @@ Return ONLY a valid JSON array of 3 objects with those keys. No markdown codeblo
           userId,
           topic: item.topic || seed,
           niche: item.niche || niche,
-          hook: item.hook || '3 Detik Pertama Yang Memikat',
+          hook: item.hook || '3 Detik Pertama Scroll Stopper',
           angle: item.angle || 'Curiosity & Value Framing',
           targetAudience: item.targetAudience || audience,
           titleIdeas: Array.isArray(item.titleIdeas) ? item.titleIdeas : [item.topic],
           contentFormat: item.contentFormat || 'Talking Head + B-Roll',
           estimatedOpportunity: item.estimatedOpportunity || 'High Potential Reach',
-          monetizationAngle: item.monetizationAngle || 'Affiliate Link / Bio',
+          monetizationAngle: item.monetizationAngle || 'Affiliate Link / Description',
           priority: (['HIGH', 'MEDIUM', 'LOW'].includes(item.priority) ? item.priority : 'HIGH') as 'HIGH' | 'MEDIUM' | 'LOW',
-          source: item.source || 'Astra Growth Intelligence',
-          createdAt: new Date().toISOString(),
+          source: item.source || 'YouTube Data API v3 & Astra Intelligence',
+          evidence: item.evidence || youtubeEvidence.evidenceText,
+          timestamp: timestampStr,
+          confidence: item.confidence || '85% High Confidence',
+          createdAt: timestampStr,
         }));
       }
 
@@ -171,7 +181,7 @@ Return ONLY JSON object.`;
         weakPatterns: [],
         recommendedNextTopics: [],
         recommendedHooks: [],
-        recommendedPublishingStrategy: 'Belum ada data histori konten untuk menganalisis Virality Loop. Silakan publikasikan Shorts terlebih dahulu.',
+        recommendedPublishingStrategy: 'Belum ada data histori konten publikasi untuk menganalisis Virality Loop. Silakan publikasikan Shorts terlebih dahulu.',
         updatedAt: new Date().toISOString(),
       };
     }
@@ -179,15 +189,15 @@ Return ONLY JSON object.`;
     const { openai, model, enabled } = this.getOpenAIClient();
     if (enabled && openai) {
       try {
-        const prompt = `You are GPT Astra Virality Learning Engine. Analyze this YouTube Shorts history:
+        const prompt = `You are GPT Astra Virality Learning Engine. Analyze this ACTUAL published YouTube Shorts performance history:
 ${JSON.stringify(history)}
 
 Generate a JSON object with keys:
-- winningPatterns (array of string observations)
-- weakPatterns (array of string observations)
-- recommendedNextTopics (array of 3 strings)
-- recommendedHooks (array of 3 strings)
-- recommendedPublishingStrategy (string)
+- winningPatterns (array of string observations based strictly on higher views/likes/retention)
+- weakPatterns (array of string observations based strictly on lower performance)
+- recommendedNextTopics (array of 3 strings for next content)
+- recommendedHooks (array of 3 strings for next hooks)
+- recommendedPublishingStrategy (string analysis based strictly on actual data)
 
 Return ONLY JSON object.`;
 
@@ -203,11 +213,11 @@ Return ONLY JSON object.`;
         const parsed = JSON.parse(cleanText);
 
         return {
-          winningPatterns: parsed.winningPatterns || [],
-          weakPatterns: parsed.weakPatterns || [],
-          recommendedNextTopics: parsed.recommendedNextTopics || [],
-          recommendedHooks: parsed.recommendedHooks || [],
-          recommendedPublishingStrategy: parsed.recommendedPublishingStrategy || 'Gunakan jadwal konsisten.',
+          winningPatterns: Array.isArray(parsed.winningPatterns) ? parsed.winningPatterns : [],
+          weakPatterns: Array.isArray(parsed.weakPatterns) ? parsed.weakPatterns : [],
+          recommendedNextTopics: Array.isArray(parsed.recommendedNextTopics) ? parsed.recommendedNextTopics : [],
+          recommendedHooks: Array.isArray(parsed.recommendedHooks) ? parsed.recommendedHooks : [],
+          recommendedPublishingStrategy: parsed.recommendedPublishingStrategy || 'Gunakan analisis performa riil.',
           updatedAt: new Date().toISOString(),
         };
       } catch (e) {
@@ -220,14 +230,55 @@ Return ONLY JSON object.`;
       weakPatterns: [],
       recommendedNextTopics: [],
       recommendedHooks: [],
-      recommendedPublishingStrategy: 'Publikasikan lebih banyak konten untuk membuka Virality Learning Loop.',
+      recommendedPublishingStrategy: 'Aktifkan Astra AI di Admin Settings untuk rekomendasi strategi mendalam.',
       updatedAt: new Date().toISOString(),
     };
   }
 
-  public async analyzeMonetization(userId: string, profile: any): Promise<MonetizationIntelligenceData> {
-    const subCount = profile?.subscriberCount || 0;
-    const viewsCount = profile?.totalViews || profile?.viewCount || 0;
+  public async analyzeMonetization(userId: string, channelInfo: YouTubeChannelInfo): Promise<MonetizationIntelligenceData> {
+    const isConnected = Boolean(channelInfo.connected);
+    const subCount = isConnected ? (channelInfo.subscriberCount || 0) : 0;
+    const viewsCount = isConnected ? (channelInfo.viewCount || 0) : 0;
+    const watchHours = Math.round(viewsCount * 0.012);
+
+    const { openai, model, enabled } = this.getOpenAIClient();
+
+    let affiliateOpportunities: Array<{ title: string; category: string; estimatedCommission: string; fitScore: string }> = [];
+    let sponsorshipOpportunities: Array<{ brandCategory: string; recommendedRate: string; pitchAngle: string }> = [];
+    let digitalProductIdeas: Array<{ productType: string; title: string; targetPrice: string }> = [];
+
+    if (isConnected && enabled && openai) {
+      try {
+        const prompt = `You are GPT Astra Monetization Engine. Analyze YouTube Channel stats:
+Subscriber Count: ${subCount}
+Total Views: ${viewsCount}
+Channel Title: ${channelInfo.title || 'N/A'}
+
+Generate JSON with:
+- affiliateOpportunities: array of objects { title, category, estimatedCommission, fitScore }
+- sponsorshipOpportunities: array of objects { brandCategory, recommendedRate, pitchAngle }
+- digitalProductIdeas: array of objects { productType, title, targetPrice }
+
+Base rate recommendations explicitly as "ESTIMATE" or "RECOMMENDATION". Return ONLY JSON object.`;
+
+        const response = await openai.chat.completions.create({
+          model: model || 'gpt-6-astra',
+          messages: [{ role: 'system', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 1000,
+        });
+
+        const text = response.choices[0]?.message?.content || '';
+        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanText);
+
+        if (parsed.affiliateOpportunities) affiliateOpportunities = parsed.affiliateOpportunities;
+        if (parsed.sponsorshipOpportunities) sponsorshipOpportunities = parsed.sponsorshipOpportunities;
+        if (parsed.digitalProductIdeas) digitalProductIdeas = parsed.digitalProductIdeas;
+      } catch (e) {
+        console.warn('Monetization analysis AI error:', e);
+      }
+    }
 
     return {
       youtubePartnerProgress: {
@@ -235,34 +286,16 @@ Return ONLY JSON object.`;
         subscriberTarget: 1000,
         shortsViews: viewsCount,
         shortsViewsTarget: 10000000,
-        watchHours: Math.round(viewsCount * 0.012),
+        watchHours,
         watchHoursTarget: 4000,
-        isEligible: subCount >= 1000 && viewsCount >= 10000000,
+        isEligible: isConnected && subCount >= 1000 && (viewsCount >= 10000000 || watchHours >= 4000),
       },
-      affiliateOpportunities: [
-        {
-          title: 'NEURONA AI Studio Affiliate Program',
-          category: 'Digital Product & SaaS',
-          estimatedCommission: 'Komisi 40% per penjualan',
-          fitScore: 'Program Resmi NEURONA',
-        }
-      ],
-      sponsorshipOpportunities: [
-        {
-          brandCategory: 'Aplikasi AI & Productivity Tools',
-          recommendedRate: subCount > 0 ? `Estimasi berbasis ${subCount} subscriber` : 'Hubungkan YouTube untuk melihat estimasi rate',
-          pitchAngle: 'Demonstrasi workflow produktivitas instan dengan fitur nyata',
-        }
-      ],
-      digitalProductIdeas: [
-        {
-          productType: 'Digital Template',
-          title: 'Template Prompt YouTube Shorts High-Engagement',
-          targetPrice: 'Rp 49.000',
-        }
-      ]
+      affiliateOpportunities,
+      sponsorshipOpportunities,
+      digitalProductIdeas,
     };
   }
 }
 
 export const AstraService = new AstraServiceClass();
+

@@ -15,7 +15,8 @@ import {
   ArrowRight, 
   ShieldAlert,
   Loader2,
-  Tv
+  Tv,
+  Activity
 } from 'lucide-react';
 import { OverviewTab } from './OverviewTab';
 import { ResearchTab } from './ResearchTab';
@@ -27,6 +28,7 @@ import { AnalyticsTab } from './AnalyticsTab';
 import { LearningTab } from './LearningTab';
 import { MonetizationTab } from './MonetizationTab';
 import { AdminAstraSettings } from './AdminAstraSettings';
+import { AstraUsageStats } from './AstraUsageStats';
 
 import { ContentOpportunity, ContentPlan, PublishedContent, MonetizationIntelligenceData, YouTubeChannelInfo, LearningPattern } from '../../types/creatorAutopilot';
 
@@ -63,24 +65,60 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
   const [learning, setLearning] = useState<LearningPattern | null>(null);
   const [loadingLearning, setLoadingLearning] = useState(false);
 
+  const [publishedList, setPublishedList] = useState<PublishedContent[]>([]);
+
   useEffect(() => {
     checkEntitlement();
     fetchChannelInfo();
+    fetchMonetizationData();
+    fetchPublishedList();
   }, []);
 
   const fetchChannelInfo = async () => {
     try {
       const token = await getAuthToken();
       if (!token) return;
-      const res = await fetch('/api/v1/creator-autopilot/channel', {
+      const res = await fetch('/api/v1/creator-autopilot/youtube/status', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success && data.channel) {
-        setChannelInfo(data.channel);
+      if (data.success && data.channelInfo) {
+        setChannelInfo(data.channelInfo);
       }
     } catch (err) {
       console.warn('Failed to fetch channel info:', err);
+    }
+  };
+
+  const fetchMonetizationData = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await fetch('/api/v1/creator-autopilot/monetization', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setMonetization(data.data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch monetization intel:', err);
+    }
+  };
+
+  const fetchPublishedList = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await fetch('/api/v1/creator-autopilot/youtube/analytics', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.videos)) {
+        setPublishedList(data.videos);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch published list:', err);
     }
   };
 
@@ -237,6 +275,7 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'learning', label: 'Virality Loop', icon: BrainCircuit },
     { id: 'monetization', label: 'Monetization Intel', icon: DollarSign },
+    { id: 'astra-usage', label: 'Astra Usage', icon: Activity },
   ];
 
   if (isAdmin) {
@@ -334,7 +373,7 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
         )}
 
         {activeTab === 'published' && (
-          <PublishedTab publishedList={[]} />
+          <PublishedTab publishedList={publishedList} />
         )}
 
         {activeTab === 'analytics' && (
@@ -351,6 +390,10 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
 
         {activeTab === 'monetization' && (
           <MonetizationTab monetization={monetization} />
+        )}
+
+        {activeTab === 'astra-usage' && (
+          <AstraUsageStats />
         )}
 
         {activeTab === 'admin-astra' && isAdmin && (

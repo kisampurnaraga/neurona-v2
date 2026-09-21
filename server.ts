@@ -43,15 +43,33 @@ try {
 }
 
 // Helper to get Firestore instance with correct database ID
-function getAdminDb() {
+function getAdminDb(useDefaultDatabase = false) {
   try {
     const app = adminApp || (getApps().length ? getApps()[0] : undefined);
-    if (app && FIRESTORE_DATABASE_ID && FIRESTORE_DATABASE_ID !== '(default)') {
+    if (!useDefaultDatabase && app && FIRESTORE_DATABASE_ID && FIRESTORE_DATABASE_ID !== '(default)') {
       return getFirestore(app, FIRESTORE_DATABASE_ID);
     }
     return app ? getFirestore(app) : getFirestore();
   } catch (e) {
     return getFirestore();
+  }
+}
+
+async function withAdminDb<T>(operation: (db: any) => Promise<T>): Promise<T> {
+  try {
+    const db = getAdminDb(false);
+    return await operation(db);
+  } catch (err: any) {
+    // If specific database instance failed with PERMISSION_DENIED or NOT_FOUND, attempt default database
+    if (err?.message && (err.message.includes('PERMISSION_DENIED') || err.message.includes('NOT_FOUND') || err.code === 7)) {
+      try {
+        const defaultDb = getAdminDb(true);
+        return await operation(defaultDb);
+      } catch (fallbackErr) {
+        throw err;
+      }
+    }
+    throw err;
   }
 }
 
@@ -373,17 +391,18 @@ async function startServer() {
       });
 
       try {
-        const db = getAdminDb();
-        await db.collection('settings').doc('astra').set({
-          enabled: updated.enabled,
-          model: updated.model,
-          maxTokens: updated.maxTokens,
-          monthlyUsageLimit: updated.monthlyUsageLimit,
-          hasApiKey: Boolean(updated.apiKey),
-          updatedAt: updated.updatedAt,
-        }, { merge: true });
-      } catch (e) {
-        console.warn('Sync Astra config to firestore warning:', e);
+        await withAdminDb(async (db) => {
+          await db.collection('settings').doc('astra').set({
+            enabled: updated.enabled,
+            model: updated.model,
+            maxTokens: updated.maxTokens,
+            monthlyUsageLimit: updated.monthlyUsageLimit,
+            hasApiKey: Boolean(updated.apiKey),
+            updatedAt: updated.updatedAt,
+          }, { merge: true });
+        });
+      } catch (e: any) {
+        console.warn('Sync Astra config to firestore warning:', e?.message || String(e));
       }
 
       res.json({
@@ -454,6 +473,38 @@ async function startServer() {
     }
   });
 
+  // Helper: Enforce Server-Authoritative Astra Usage Limit
+  async function checkAstraMonthlyUsageLimit(userId: string): Promise<void> {
+    const config = FounderService.getAstraConfig();
+    const limit = config.monthlyUsageLimit || 1000;
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    let totalRequests = 0;
+    try {
+      await withAdminDb(async (db) => {
+        const snap = await db.collection('astra_usage')
+          .where('userId', '==', userId)
+          .where('timestamp', '>=', startOfMonth)
+          .get();
+
+        snap.forEach((doc: any) => {
+          const data = doc.data();
+          totalRequests += Number(data.requestCount) || 1;
+        });
+      });
+    } catch (e) {
+      console.warn('Usage limit check warning:', e);
+    }
+
+    if (totalRequests >= limit) {
+      const err: any = new Error(`Batas kuota bulanan Astra AI (${limit} request) telah tercapai untuk akun Anda.`);
+      err.statusCode = 429;
+      throw err;
+    }
+  }
+
   // User: Research Content Opportunities via Astra
   app.post("/api/v1/creator-autopilot/research", verifyFirebaseToken, async (req, res) => {
     try {
@@ -466,19 +517,34 @@ async function startServer() {
         });
       }
 
+      // 1. Enforce Server-Authoritative Monthly Astra Limit
+      await checkAstraMonthlyUsageLimit(user.uid);
+
+      // 2. Fetch User's YouTube tokens if connected
+      let tokens: any = undefined;
+      try {
+        await withAdminDb(async (db) => {
+          const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+          if (tokenDoc.exists) tokens = tokenDoc.data();
+        });
+      } catch (e) {
+        // ignore token fetch error
+      }
+
       const { niche, targetAudience, seedTopic, monetizationGoal } = req.body;
-      const opportunities = await AstraService.research({ niche, targetAudience, seedTopic, monetizationGoal }, user.uid);
+      const opportunities = await AstraService.research({ niche, targetAudience, seedTopic, monetizationGoal, tokens }, user.uid);
 
       // Record Usage Log
       try {
-        const db = getAdminDb();
-        await db.collection('astra_usage').add({
-          userId: user.uid,
-          userEmail: user.email || '',
-          feature: 'ASTRA_RESEARCH',
-          requestCount: 1,
-          estimatedTokens: 850,
-          timestamp: new Date().toISOString()
+        await withAdminDb(async (db) => {
+          await db.collection('astra_usage').add({
+            userId: user.uid,
+            userEmail: user.email || '',
+            feature: 'ASTRA_RESEARCH',
+            requestCount: 1,
+            estimatedTokens: 850,
+            timestamp: new Date().toISOString()
+          });
         });
       } catch (e) {
         console.warn('Failed to record astra usage:', e);
@@ -486,7 +552,8 @@ async function startServer() {
 
       res.json({ success: true, opportunities });
     } catch (err: any) {
-      res.status(500).json({ error: err.message || "Research request failed" });
+      const statusCode = err.statusCode || 500;
+      res.status(statusCode).json({ error: err.message || "Research request failed" });
     }
   });
 
@@ -502,19 +569,23 @@ async function startServer() {
         });
       }
 
+      // Enforce Usage Limit
+      await checkAstraMonthlyUsageLimit(user.uid);
+
       const { opportunity } = req.body;
       const plan = await AstraService.generateContentPlan(opportunity || {}, user.uid);
 
       // Record Usage Log
       try {
-        const db = getAdminDb();
-        await db.collection('astra_usage').add({
-          userId: user.uid,
-          userEmail: user.email || '',
-          feature: 'ASTRA_CONTENT_PLAN',
-          requestCount: 1,
-          estimatedTokens: 950,
-          timestamp: new Date().toISOString()
+        await withAdminDb(async (db) => {
+          await db.collection('astra_usage').add({
+            userId: user.uid,
+            userEmail: user.email || '',
+            feature: 'ASTRA_CONTENT_PLAN',
+            requestCount: 1,
+            estimatedTokens: 950,
+            timestamp: new Date().toISOString()
+          });
         });
       } catch (e) {
         console.warn('Failed to record astra usage:', e);
@@ -522,7 +593,8 @@ async function startServer() {
 
       res.json({ success: true, plan });
     } catch (err: any) {
-      res.status(500).json({ error: err.message || "Content plan generation failed" });
+      const statusCode = err.statusCode || 500;
+      res.status(statusCode).json({ error: err.message || "Content plan generation failed" });
     }
   });
 
@@ -552,11 +624,18 @@ async function startServer() {
         return res.status(403).json({ error: "Creator Autopilot adalah fitur Premium.", code: "ENTITLEMENT_LOCKED" });
       }
 
-      const db = getAdminDb();
-      const profileDoc = await db.collection('creator_autopilot_profiles').doc(user.uid).get();
-      const profile = profileDoc.exists ? profileDoc.data() : {};
+      let tokens: any = null;
+      try {
+        await withAdminDb(async (db) => {
+          const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+          if (tokenDoc.exists) tokens = tokenDoc.data();
+        });
+      } catch (e) {
+        // ignore
+      }
 
-      const data = await AstraService.analyzeMonetization(user.uid, profile);
+      const channelInfo = await YouTubeService.getChannelInfo(user.uid, tokens);
+      const data = await AstraService.analyzeMonetization(user.uid, channelInfo);
       res.json({ success: true, data });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Monetization analysis failed" });
@@ -571,17 +650,223 @@ async function startServer() {
     res.json({ success: true, authUrl: url, redirectUri });
   });
 
+  // OAuth Callback for YouTube Connection
+  app.get("/api/v1/creator-autopilot/youtube/callback", async (req, res) => {
+    try {
+      const code = req.query.code as string;
+      const userId = req.query.state as string;
+
+      if (!code || !userId) {
+        return res.status(400).send("Parameter authorization code atau state userId tidak lengkap.");
+      }
+
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/v1/creator-autopilot/youtube/callback`;
+      const tokens = await YouTubeService.exchangeCodeForTokens(code, redirectUri);
+
+      // Save tokens in server-side Firestore
+      await withAdminDb(async (db) => {
+        await db.collection('creator_youtube_tokens').doc(userId).set({
+          ...tokens,
+          userId,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        // Update profile
+        await db.collection('creator_autopilot_profiles').doc(userId).set({
+          userId,
+          youtubeConnected: true,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      });
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>YouTube Connected</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #0f172a; color: white;">
+          <h2>✅ Channel YouTube Berhasil Terhubung!</h2>
+          <p>Koneksi aman ke YouTube Data API V3 berhasil dikonfigurasi.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'YOUTUBE_CONNECTED' }, '*');
+              setTimeout(() => window.close(), 1500);
+            } else {
+              setTimeout(() => { window.location.href = '/'; }, 2000);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    } catch (err: any) {
+      console.error("YouTube OAuth Callback Error:", err);
+      res.status(500).send(`Gagal menghubungkan YouTube: ${err.message || String(err)}`);
+    }
+  });
+
+  // Revoke YouTube OAuth Token
+  app.post("/api/v1/creator-autopilot/youtube/revoke", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      let tokens: any = null;
+
+      await withAdminDb(async (db) => {
+        const doc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+        if (doc.exists) tokens = doc.data();
+
+        if (tokens?.access_token) {
+          await YouTubeService.revokeToken(tokens.access_token);
+        }
+
+        await db.collection('creator_youtube_tokens').doc(user.uid).delete();
+        await db.collection('creator_autopilot_profiles').doc(user.uid).set({
+          youtubeConnected: false,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      });
+
+      res.json({ success: true, message: "Koneksi YouTube berhasil dicabut." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Gagal mencabut koneksi YouTube." });
+    }
+  });
+
   app.get("/api/v1/creator-autopilot/youtube/status", verifyFirebaseToken, async (req, res) => {
     try {
       const user = (req as any).user;
-      const db = getAdminDb();
-      const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
-      const tokens = tokenDoc.exists ? tokenDoc.data() : null;
+      let tokens: any = null;
+      await withAdminDb(async (db) => {
+        const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+        if (tokenDoc.exists) tokens = tokenDoc.data();
+      });
 
       const channelInfo = await YouTubeService.getChannelInfo(user.uid, tokens);
       res.json({ success: true, channelInfo });
     } catch (err: any) {
       res.json({ success: true, channelInfo: { connected: false } });
+    }
+  });
+
+  // Server-Authoritative YouTube Video Upload & Schedule
+  app.post("/api/v1/creator-autopilot/youtube/upload", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      if (!entitlement.active) {
+        return res.status(403).json({ error: "Creator Autopilot adalah fitur Premium.", code: "ENTITLEMENT_LOCKED" });
+      }
+
+      let tokens: any = null;
+      await withAdminDb(async (db) => {
+        const doc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+        if (doc.exists) tokens = doc.data();
+      });
+
+      if (!tokens) {
+        return res.status(400).json({ error: "NOT AVAILABLE: Hubungkan channel YouTube terlebih dahulu via OAuth." });
+      }
+
+      const { title, description, tags, publishAt, videoUrl, planId } = req.body;
+
+      if (!title || !description) {
+        return res.status(400).json({ error: "Title dan Description wajib diisi." });
+      }
+
+      // Real upload or schedule call via YouTubeService
+      const uploadResult = await YouTubeService.uploadShortsVideo({
+        tokens,
+        title,
+        description,
+        tags: tags || [],
+        publishAt,
+        videoUrl,
+      });
+
+      // Save real published record in Firestore
+      await withAdminDb(async (db) => {
+        await db.collection('creator_published_content').add({
+          userId: user.uid,
+          planId: planId || '',
+          title,
+          youtubeVideoId: uploadResult.videoId,
+          youtubeUrl: uploadResult.youtubeUrl,
+          status: uploadResult.status,
+          scheduledTime: uploadResult.scheduledTime || '',
+          publishedTime: uploadResult.publishedTime || new Date().toISOString(),
+          views: 0,
+          likes: 0,
+          comments: 0,
+          subscribersGained: 0,
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      res.json({
+        success: true,
+        videoId: uploadResult.videoId,
+        youtubeUrl: uploadResult.youtubeUrl,
+        status: uploadResult.status,
+        message: uploadResult.status === 'SCHEDULED' ? 'Video berhasil dijadwalkan di YouTube!' : 'Video berhasil dipublikasikan ke YouTube Shorts!'
+      });
+    } catch (err: any) {
+      console.error("YouTube Upload error:", err);
+      res.status(500).json({ error: err.message || "Gagal mengunggah video ke YouTube." });
+    }
+  });
+
+  // Get Real YouTube Analytics for User's Published Videos
+  app.get("/api/v1/creator-autopilot/youtube/analytics", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      let tokens: any = null;
+      let publishedList: any[] = [];
+
+      await withAdminDb(async (db) => {
+        const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+        if (tokenDoc.exists) tokens = tokenDoc.data();
+
+        const snap = await db.collection('creator_published_content')
+          .where('userId', '==', user.uid)
+          .get();
+
+        snap.forEach((doc) => {
+          publishedList.push({ id: doc.id, ...doc.data() });
+        });
+      });
+
+      if (publishedList.length === 0) {
+        return res.json({ success: true, videos: [], totalViews: 0, totalLikes: 0, totalComments: 0 });
+      }
+
+      const videoIds = publishedList.map(v => v.youtubeVideoId).filter(Boolean);
+      const statsMap = await YouTubeService.getVideoStats(videoIds, tokens);
+
+      let totalViews = 0;
+      let totalLikes = 0;
+      let totalComments = 0;
+
+      const updatedVideos = publishedList.map(v => {
+        const realStats = statsMap[v.youtubeVideoId] || { views: v.views || 0, likes: v.likes || 0, comments: v.comments || 0 };
+        totalViews += realStats.views;
+        totalLikes += realStats.likes;
+        totalComments += realStats.comments;
+
+        return {
+          ...v,
+          views: realStats.views,
+          likes: realStats.likes,
+          comments: realStats.comments,
+        };
+      });
+
+      res.json({
+        success: true,
+        videos: updatedVideos,
+        totalViews,
+        totalLikes,
+        totalComments
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Gagal mengambil YouTube Analytics." });
     }
   });
 

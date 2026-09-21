@@ -31,7 +31,10 @@ export interface ContentOpportunity {
   estimatedOpportunity: string; // e.g. "Probability High - 85% Engagement Match"
   monetizationAngle: string;
   priority: OpportunityPriority;
-  source: string; // e.g. "Astra Trend Intelligence"
+  source: string; // e.g. "YouTube Data API & Astra Intelligence"
+  evidence?: string; // Real data evidence (e.g. "Top 5 videos in niche averaged 145k views in last 7 days")
+  timestamp?: string; // ISO timestamp of evidence capture
+  confidence?: string; // e.g. "88% High Confidence"
   createdAt: string;
 }
 

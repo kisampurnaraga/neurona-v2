@@ -15,6 +15,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { ContentOpportunity, ContentPlan, MonetizationIntelligenceData, YouTubeChannelInfo } from '../../types/creatorAutopilot';
+import { AstraUsageStats } from './AstraUsageStats';
 
 interface OverviewTabProps {
   channelInfo: YouTubeChannelInfo;
@@ -140,6 +141,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Real-time Astra Monthly Usage Statistics */}
+      <AstraUsageStats />
 
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
