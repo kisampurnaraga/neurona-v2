@@ -31,7 +31,10 @@ class AstraServiceClass {
     }
   }
 
-  public async research(params: AstraResearchParams, userId: string): Promise<ContentOpportunity[]> {
+  public async research(params: AstraResearchParams, userId: string): Promise<{
+    status: 'SUCCESS' | 'RESEARCH_UNAVAILABLE';
+    opportunities: ContentOpportunity[];
+  }> {
     const { openai, model, enabled } = this.getOpenAIClient();
     const niche = params.niche || 'Digital Product & AI Tools';
     const audience = params.targetAudience || 'Creators & Online Entrepreneurs';
@@ -43,14 +46,19 @@ class AstraServiceClass {
 
     // Search YouTube Data API for real-time evidence
     const youtubeEvidence = await YouTubeService.searchTrendingEvidence(`${niche} ${seed}`, params.tokens);
-    const timestampStr = new Date().toISOString();
+    const timestampStr = youtubeEvidence.timestamp || new Date().toISOString();
+    const isAvailable = youtubeEvidence.status === 'SUCCESS' && Boolean(youtubeEvidence.evidenceText);
 
     try {
-      const prompt = `You are GPT Astra, the AI Content & Growth Intelligence Engine for YouTube Shorts.
-Conduct deep trend research for niche: "${niche}", target audience: "${audience}", seed topic: "${seed}".
-Ground truth YouTube API search evidence: "${youtubeEvidence.evidenceText}". Sample titles found: ${JSON.stringify(youtubeEvidence.sampleTitles)}.
+      const evidenceInstruction = isAvailable
+        ? `Ground truth YouTube API search evidence: "${youtubeEvidence.evidenceText}". Sample titles found: ${JSON.stringify(youtubeEvidence.sampleTitles)}. Base opportunity confidence and evidence directly on these actual search results.`
+        : `YouTube Data API search evidence: UNAVAILABLE (Data penelitian tidak tersedia dari API). CRITICAL CONSTRAINT: Do NOT fabricate or hallucinate any fake video counts, fake view numbers, fake API evidence text, or fake confidence percentages. Set evidence to null and confidence to null.`;
 
-Generate 3 distinct YouTube Shorts Content Opportunities in JSON format based on actual analysis.
+      const prompt = `You are GPT Astra, the AI Content & Growth Intelligence Engine for YouTube Shorts.
+Conduct trend research for niche: "${niche}", target audience: "${audience}", seed topic: "${seed}".
+${evidenceInstruction}
+
+Generate 3 distinct YouTube Shorts Content Opportunities in JSON format.
 
 Constraints:
 - Use realistic probability language ("Probability High - 80% Engagement Match", "High Engagement Opportunity").
@@ -66,9 +74,9 @@ Constraints:
   - estimatedOpportunity (string)
   - monetizationAngle (string)
   - priority ("HIGH" | "MEDIUM" | "LOW")
-  - source (string, e.g. "YouTube Data API v3 & Astra Intelligence")
-  - evidence (string, factual evidence string referencing YouTube search/trends)
-  - confidence (string, e.g. "85% High Confidence")
+  - source ("YouTube Data API v3")
+  - evidence (${isAvailable ? 'factual evidence string referencing YouTube search results' : 'MUST be null'})
+  - confidence (${isAvailable ? 'realistic confidence string' : 'MUST be null'})
 
 Return ONLY a valid JSON array of 3 objects with those exact keys.`;
 
@@ -84,7 +92,7 @@ Return ONLY a valid JSON array of 3 objects with those exact keys.`;
       const parsed = JSON.parse(cleanText);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item, idx) => ({
+        const opportunities: ContentOpportunity[] = parsed.map((item, idx) => ({
           id: `opp-${Date.now()}-${idx}`,
           userId,
           topic: item.topic || seed,
@@ -97,12 +105,18 @@ Return ONLY a valid JSON array of 3 objects with those exact keys.`;
           estimatedOpportunity: item.estimatedOpportunity || 'High Potential Reach',
           monetizationAngle: item.monetizationAngle || 'Affiliate Link / Description',
           priority: (['HIGH', 'MEDIUM', 'LOW'].includes(item.priority) ? item.priority : 'HIGH') as 'HIGH' | 'MEDIUM' | 'LOW',
-          source: item.source || 'YouTube Data API v3 & Astra Intelligence',
-          evidence: item.evidence || youtubeEvidence.evidenceText,
+          source: 'YouTube Data API v3',
+          status: isAvailable ? 'SUCCESS' : 'RESEARCH_UNAVAILABLE',
+          evidence: isAvailable ? (item.evidence || youtubeEvidence.evidenceText) : null,
           timestamp: timestampStr,
-          confidence: item.confidence || '85% High Confidence',
+          confidence: isAvailable ? (item.confidence || 'Analisis Berdasarkan Data API') : null,
           createdAt: timestampStr,
         }));
+
+        return {
+          status: isAvailable ? 'SUCCESS' : 'RESEARCH_UNAVAILABLE',
+          opportunities,
+        };
       }
 
       throw new Error('Respon dari Astra AI tidak sesuai format JSON.');
@@ -239,7 +253,6 @@ Return ONLY JSON object.`;
     const isConnected = Boolean(channelInfo.connected);
     const subCount = isConnected ? (channelInfo.subscriberCount || 0) : 0;
     const viewsCount = isConnected ? (channelInfo.viewCount || 0) : 0;
-    const watchHours = Math.round(viewsCount * 0.012);
 
     const { openai, model, enabled } = this.getOpenAIClient();
 
@@ -284,11 +297,14 @@ Base rate recommendations explicitly as "ESTIMATE" or "RECOMMENDATION". Return O
       youtubePartnerProgress: {
         subscriberCount: subCount,
         subscriberTarget: 1000,
-        shortsViews: viewsCount,
+        shortsViews: null, // Metric Shorts 90 hari tidak tersedia dari endpoint channel stats YouTube Data API
         shortsViewsTarget: 10000000,
-        watchHours,
+        watchHours: null, // Metric watch hours 365 hari tidak tersedia dari endpoint channel stats YouTube Data API (no synthetic formula)
         watchHoursTarget: 4000,
-        isEligible: isConnected && subCount >= 1000 && (viewsCount >= 10000000 || watchHours >= 4000),
+        totalChannelViews: viewsCount, // REAL ACTUAL DATA directly from YouTube API
+        isEligible: isConnected && subCount >= 1000,
+        shortsViewsStatus: 'N/A / Data tidak tersedia',
+        watchHoursStatus: 'N/A / Data tidak tersedia',
       },
       affiliateOpportunities,
       sponsorshipOpportunities,

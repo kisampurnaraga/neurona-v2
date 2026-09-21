@@ -1,20 +1,22 @@
 import React from 'react';
 import { 
-  TrendingUp, 
   Users, 
   Eye, 
   DollarSign, 
   Zap, 
   Sparkles, 
-  CheckCircle, 
-  ArrowUpRight, 
   Clock, 
-  PlaySquare, 
   Target, 
-  Lightbulb,
-  ChevronRight
+  ChevronRight,
+  BrainCircuit
 } from 'lucide-react';
-import { ContentOpportunity, ContentPlan, MonetizationIntelligenceData, YouTubeChannelInfo } from '../../types/creatorAutopilot';
+import { 
+  ContentOpportunity, 
+  ContentPlan, 
+  MonetizationIntelligenceData, 
+  YouTubeChannelInfo,
+  LearningPattern 
+} from '../../types/creatorAutopilot';
 import { AstraUsageStats } from './AstraUsageStats';
 
 interface OverviewTabProps {
@@ -22,6 +24,7 @@ interface OverviewTabProps {
   opportunities: ContentOpportunity[];
   plans: ContentPlan[];
   monetization: MonetizationIntelligenceData | null;
+  learning?: LearningPattern | null;
   onSelectTab: (tab: string) => void;
   onCreatePlanFromOpportunity: (opp: ContentOpportunity) => void;
 }
@@ -31,6 +34,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   opportunities,
   plans,
   monetization,
+  learning,
   onSelectTab,
   onCreatePlanFromOpportunity
 }) => {
@@ -59,7 +63,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </span>
               </div>
               <p className="text-sm text-slate-400 mt-1">
-                Engine: <span className="text-purple-300 font-semibold">GPT Astra Growth Intelligence</span> • Status: <span className={channelInfo.connected ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>{channelInfo.connected ? 'Terhubung' : 'Siap Dihubungkan'}</span>
+                Engine: <span className="text-purple-300 font-semibold">GPT Astra Growth Intelligence</span> • Status: <span className={channelInfo.connected ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>{channelInfo.connected ? 'Terhubung (Live API)' : 'Siap Dihubungkan'}</span>
               </p>
             </div>
           </div>
@@ -83,16 +87,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      {/* Metric Cards Grid */}
+      {/* Metric Cards Grid - Strictly Actual YouTube Data or N/A */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Subscriber Progress - Real API */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
             <span>Subscriber Progress</span>
-            <Users className="w-4 h-4 text-purple-400" />
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold">ACTUAL DATA</span>
           </div>
           <div className="text-2xl font-bold text-white">{subCount.toLocaleString('id-ID')}</div>
           <div className="mt-3 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Target 1,000 Subs</span>
+            <span className="text-slate-400">Target 1.000 Subs</span>
             <span className="text-purple-400 font-semibold">{Math.min(100, Math.round((subCount / 1000) * 100))}%</span>
           </div>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
@@ -100,44 +105,41 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
         </div>
 
+        {/* Lifetime Channel Views - Real API */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-            <span>Shorts Views Progress</span>
-            <Eye className="w-4 h-4 text-indigo-400" />
+            <span>Total Channel Views</span>
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold">ACTUAL DATA</span>
           </div>
           <div className="text-2xl font-bold text-white">{viewCount.toLocaleString('id-ID')}</div>
-          <div className="mt-3 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Target 10M Views</span>
-            <span className="text-indigo-400 font-semibold">{((viewCount / 10000000) * 100).toFixed(2)}%</span>
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-cyan-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (viewCount / 10000000) * 100)}%` }} />
-          </div>
-        </div>
-
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-            <span>Monetization Progress</span>
-            <Target className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="text-2xl font-bold text-amber-300">
-            {ytProgress?.isEligible ? 'Eligible' : 'Belum Eligible'}
-          </div>
-          <p className="text-xs text-slate-400 mt-2">
-            {ytProgress?.isEligible ? 'Syarat YPP Terpenuhi!' : 'Mencapai milestone monetisasi YouTube Shorts'}
+          <p className="text-xs text-slate-400 mt-3">
+            Akumulasi seluruh video channel via YouTube Data API.
           </p>
         </div>
 
+        {/* Shorts Views 90 Hari - Not available via public API */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm hover:border-slate-700 transition-all">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+            <span>Shorts Views (90 Hari)</span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-mono">DATA TIDAK TERSEDIA</span>
+          </div>
+          <div className="text-xl font-bold text-amber-300">N/A / Data tidak tersedia</div>
+          <p className="text-xs text-slate-500 mt-3">
+            Tersedia langsung di analitik YouTube Studio creator.
+          </p>
+        </div>
+
+        {/* Channel Status */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
             <span>Status Akun YouTube</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-lg font-bold text-emerald-400">
-            {channelInfo.connected ? 'Terhubung' : 'Belum Terhubung'}
+          <div className="text-lg font-bold text-emerald-400 truncate">
+            {channelInfo.connected ? channelInfo.title : 'Belum Terhubung'}
           </div>
           <p className="text-xs text-slate-400 mt-2">
-            {channelInfo.connected ? channelInfo.title : 'Klik untuk hubungkan channel'}
+            {channelInfo.connected ? 'Channel terhubung via OAuth' : 'Hubungkan channel di menu Published'}
           </p>
         </div>
       </div>
@@ -147,9 +149,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 cols): Today's Opportunities & Content Queue */}
+        {/* Left Column (2 cols): Today's Opportunities & Dynamic Hook Patterns */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Today's Opportunities */}
+          {/* Today's Opportunities (Real Astra Intelligence Output) */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -167,7 +169,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
             {opportunities.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-xs space-y-2">
-                <p>Belum ada ide opportunity.</p>
+                <p>Belum ada data.</p>
                 <button
                   onClick={() => onSelectTab('research')}
                   className="px-3.5 py-1.5 rounded-lg bg-purple-600/30 text-purple-300 border border-purple-500/30 hover:bg-purple-600/50 font-medium transition-all"
@@ -185,6 +187,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           {opp.priority} PRIORITY
                         </span>
                         <span className="text-xs text-slate-400">• {opp.niche}</span>
+                        {opp.status === 'RESEARCH_UNAVAILABLE' && (
+                          <span className="text-[10px] text-amber-400 font-mono">Data riset tidak tersedia</span>
+                        )}
                       </div>
                       <h4 className="font-semibold text-white text-sm">{opp.topic}</h4>
                       <p className="text-xs text-slate-300 italic">"Hook: {opp.hook}"</p>
@@ -201,50 +206,70 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             )}
           </div>
 
-          {/* Winning Hook Patterns */}
+          {/* Dynamic Hook Patterns from Actual Astra Research (No hardcoded intelligence) */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              <h3 className="text-lg font-bold text-white">Winning Hook Patterns Framework</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-800/40">
-                <div className="text-xs font-bold text-purple-300 uppercase tracking-wide">Pola #1: Loss Aversion</div>
-                <p className="text-xs text-slate-200 mt-1 font-medium">"Jangan Lakukan Ini Sebelum Tahu 1 Rahasia Ini..."</p>
-                <div className="text-[11px] text-purple-300 mt-2 font-semibold">Tinggi potensi scroll-stopper</div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <h3 className="text-lg font-bold text-white">Astra Hook Intelligence</h3>
               </div>
-              <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-800/40">
-                <div className="text-xs font-bold text-indigo-300 uppercase tracking-wide">Pola #2: Speed & Efficiency</div>
-                <p className="text-xs text-slate-200 mt-1 font-medium">"Cara Membuat Content Shorts Dalam 10 Menit!"</p>
-                <div className="text-[11px] text-indigo-300 mt-2 font-semibold">Tinggi potensi bookmark & share</div>
-              </div>
+              <span className="text-xs text-slate-400">Pola dari riset aktual</span>
             </div>
+
+            {opportunities.length === 0 ? (
+              <div className="p-6 rounded-xl bg-slate-800/40 border border-slate-700/40 text-center text-xs text-slate-400">
+                Belum ada data pattern hook. Jalankan Astra Research untuk menganalisis formula hook yang relevan dengan topik Anda.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {opportunities.slice(0, 2).map((opp, idx) => (
+                  <div key={opp.id || idx} className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-800/40">
+                    <div className="text-xs font-bold text-purple-300 uppercase tracking-wide">
+                      Angle: {opp.angle}
+                    </div>
+                    <p className="text-xs text-slate-200 mt-1 font-medium italic">"{opp.hook}"</p>
+                    <div className="text-[11px] text-purple-300/80 mt-2 font-medium">
+                      Topik: {opp.topic}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column (1 col): Astra Recommendations & Scheduled Content */}
+        {/* Right Column (1 col): Virality Learning Recommendations & Scheduled Content */}
         <div className="space-y-6">
+          {/* Real Learning Loop Recommendations (No hardcoded advice) */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
             <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="w-5 h-5 text-amber-400" />
-              <h3 className="text-lg font-bold text-white">Astra Recommendations</h3>
+              <BrainCircuit className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-lg font-bold text-white">Learning Loop Insights</h3>
             </div>
-            <ul className="space-y-3 text-xs text-slate-300">
-              <li className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-start gap-2.5">
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Publikasikan Shorts pada jam konsisten untuk membangun rutinitas penonton.</span>
-              </li>
-              <li className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-start gap-2.5">
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Gunakan teks berwarna kontras tinggi di 3 detik pertama sebagai scroll-stopper.</span>
-              </li>
-              <li className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-start gap-2.5">
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Gunakan Call to Action yang jelas di akhir video.</span>
-              </li>
-            </ul>
+
+            {!learning || !learning.keyTakeaways || learning.keyTakeaways.length === 0 ? (
+              <div className="p-5 rounded-xl bg-slate-800/40 border border-slate-700/40 text-center text-xs text-slate-400 space-y-2">
+                <p>Belum ada data rekomendasi Astra / Learning Loop.</p>
+                <button
+                  onClick={() => onSelectTab('learning')}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/50 font-medium transition-all text-xs"
+                >
+                  Jalankan Virality Loop
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-3 text-xs text-slate-300">
+                {learning.keyTakeaways.map((takeaway, idx) => (
+                  <li key={idx} className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 flex items-start gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                    <span>{takeaway}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
+          {/* Content Queue */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

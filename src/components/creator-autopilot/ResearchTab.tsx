@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Search, Loader2, Zap, ArrowRight, Target, DollarSign, Layers } from 'lucide-react';
+import { Sparkles, Search, Loader2, Zap, ArrowRight, Target, DollarSign, Layers, AlertCircle } from 'lucide-react';
 import { ContentOpportunity } from '../../types/creatorAutopilot';
 
 interface ResearchTabProps {
@@ -165,6 +165,14 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
             <span className="text-xs text-slate-400">Peluang berbasis Astra Pattern Analysis</span>
           </div>
 
+          {/* Notice banner if research data is unavailable */}
+          {results.length > 0 && results.some((r) => r.status === 'RESEARCH_UNAVAILABLE' || !r.evidence) && (
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>Status Riset: Data penelitian tidak tersedia dari YouTube API (kuota/koneksi API). Rekomendasi konten disusun tanpa klaim data video riil.</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {results.map((opp) => (
               <div key={opp.id} className="bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4 backdrop-blur-sm transition-all shadow-lg">
@@ -173,7 +181,7 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${opp.priority === 'HIGH' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'}`}>
                       {opp.priority} PRIORITY
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">{opp.source}</span>
+                    <span className="text-[11px] text-slate-400 font-medium">{opp.source || 'YouTube Data API v3'}</span>
                   </div>
 
                   <div>
@@ -197,14 +205,30 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({
                   </div>
 
                   {/* Evidence & Confidence Section */}
-                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 text-[11px] space-y-1">
-                    <div className="flex items-center justify-between text-purple-300 font-semibold">
-                      <span>Evidence & Source</span>
-                      <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-200 font-mono text-[10px]">
-                        {opp.confidence || '85% Confidence'}
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span className="text-purple-300 flex items-center gap-1">
+                        Evidence & Source:
                       </span>
+                      {opp.status === 'RESEARCH_UNAVAILABLE' || !opp.evidence ? (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px]">
+                          DATA TIDAK TERSEDIA
+                        </span>
+                      ) : (
+                        opp.confidence && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+                            {opp.confidence}
+                          </span>
+                        )
+                      )}
                     </div>
-                    <p className="text-slate-300 leading-normal">{opp.evidence || 'Analisis riil YouTube Search API & Astra Pattern.'}</p>
+
+                    {opp.status === 'RESEARCH_UNAVAILABLE' || !opp.evidence ? (
+                      <p className="text-amber-300/80 italic font-medium">Data penelitian tidak tersedia</p>
+                    ) : (
+                      <p className="text-slate-300 leading-normal">{opp.evidence}</p>
+                    )}
+
                     {opp.timestamp && (
                       <p className="text-[10px] text-slate-500">Timestamp: {new Date(opp.timestamp).toLocaleString('id-ID')}</p>
                     )}

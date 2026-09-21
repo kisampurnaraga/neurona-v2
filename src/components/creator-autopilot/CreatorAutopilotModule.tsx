@@ -334,6 +334,7 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
             opportunities={opportunities}
             plans={plans}
             monetization={monetization}
+            learning={learning}
             onSelectTab={setActiveTab}
             onCreatePlanFromOpportunity={handleCreatePlanFromOpportunity}
           />

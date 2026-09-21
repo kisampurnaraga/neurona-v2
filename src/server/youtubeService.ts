@@ -211,13 +211,29 @@ export class YouTubeService {
    * Search trending YouTube Shorts videos in a niche for real research evidence
    */
   public static async searchTrendingEvidence(queryStr: string, tokens?: YouTubeTokenData): Promise<{
-    evidenceText: string;
-    videoCount: number;
+    status: 'SUCCESS' | 'RESEARCH_UNAVAILABLE';
+    evidenceText: string | null;
+    videoCount: number | null;
     sampleTitles: string[];
-    avgViewsEstimate: string;
+    source: string;
+    timestamp: string;
   }> {
+    const timestamp = new Date().toISOString();
+    const source = 'YouTube Data API v3';
+
     const accessToken = await this.getValidAccessToken(tokens);
     const apiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || '';
+
+    if (!accessToken && !apiKey) {
+      return {
+        status: 'RESEARCH_UNAVAILABLE',
+        evidenceText: null,
+        videoCount: null,
+        sampleTitles: [],
+        source,
+        timestamp,
+      };
+    }
 
     let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(queryStr + ' shorts')}&type=video&videoDuration=short&order=viewCount&maxResults=5`;
     const headers: Record<string, string> = {};
@@ -226,43 +242,60 @@ export class YouTubeService {
       headers['Authorization'] = `Bearer ${accessToken}`;
     } else if (apiKey) {
       url += `&key=${apiKey}`;
-    } else {
-      return {
-        evidenceText: `YouTube Data API: Keyword query "${queryStr}" dianalisis oleh Astra Research Engine.`,
-        videoCount: 0,
-        sampleTitles: [],
-        avgViewsEstimate: 'N/A',
-      };
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
     try {
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
+        console.warn(`YouTube search API responded with status ${res.status}`);
         return {
-          evidenceText: `YouTube Search query: "${queryStr}". Data real-time YouTube API saat ini diproses oleh Astra Intelligence.`,
-          videoCount: 0,
+          status: 'RESEARCH_UNAVAILABLE',
+          evidenceText: null,
+          videoCount: null,
           sampleTitles: [],
-          avgViewsEstimate: 'N/A',
+          source,
+          timestamp,
         };
       }
 
       const data = await res.json();
       const items = data.items || [];
+      if (!Array.isArray(items) || items.length === 0) {
+        return {
+          status: 'RESEARCH_UNAVAILABLE',
+          evidenceText: null,
+          videoCount: null,
+          sampleTitles: [],
+          source,
+          timestamp,
+        };
+      }
+
       const sampleTitles = items.map((it: any) => it.snippet?.title).filter(Boolean);
 
       return {
-        evidenceText: `YouTube Data API: Ditemukan ${items.length} top trending Shorts untuk "${queryStr}". Judul teratas: "${sampleTitles[0] || queryStr}".`,
+        status: 'SUCCESS',
+        evidenceText: `YouTube Data API: Ditemukan ${items.length} video Shorts aktual untuk query "${queryStr}". Judul: "${sampleTitles[0] || queryStr}".`,
         videoCount: items.length,
         sampleTitles,
-        avgViewsEstimate: items.length > 0 ? 'High Trajectory' : 'N/A',
+        source,
+        timestamp,
       };
     } catch (e) {
-      console.warn('YouTube trending search error:', e);
+      clearTimeout(timeoutId);
+      console.warn('YouTube trending search error / timeout:', e);
       return {
-        evidenceText: `Analisis query "${queryStr}" via Astra Research Engine.`,
-        videoCount: 0,
+        status: 'RESEARCH_UNAVAILABLE',
+        evidenceText: null,
+        videoCount: null,
         sampleTitles: [],
-        avgViewsEstimate: 'N/A',
+        source,
+        timestamp,
       };
     }
   }

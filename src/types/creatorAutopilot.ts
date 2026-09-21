@@ -31,10 +31,11 @@ export interface ContentOpportunity {
   estimatedOpportunity: string; // e.g. "Probability High - 85% Engagement Match"
   monetizationAngle: string;
   priority: OpportunityPriority;
-  source: string; // e.g. "YouTube Data API & Astra Intelligence"
-  evidence?: string; // Real data evidence (e.g. "Top 5 videos in niche averaged 145k views in last 7 days")
+  source: string; // e.g. "YouTube Data API v3"
+  status?: 'SUCCESS' | 'RESEARCH_UNAVAILABLE';
+  evidence?: string | null; // Real data evidence from API
   timestamp?: string; // ISO timestamp of evidence capture
-  confidence?: string; // e.g. "88% High Confidence"
+  confidence?: string | null; // e.g. "88% High Confidence"
   createdAt: string;
 }
 
@@ -92,11 +93,14 @@ export interface MonetizationIntelligenceData {
   youtubePartnerProgress: {
     subscriberCount: number;
     subscriberTarget: number; // 1000
-    shortsViews: number;
+    shortsViews: number | null; // null if not available from standard API
     shortsViewsTarget: number; // 10,000,000
-    watchHours: number;
+    watchHours: number | null; // null if not available from standard API
     watchHoursTarget: number; // 4000
+    totalChannelViews: number; // actual lifetime channel views
     isEligible: boolean;
+    shortsViewsStatus?: string; // 'N/A / Data tidak tersedia'
+    watchHoursStatus?: string; // 'N/A / Data tidak tersedia'
   };
   affiliateOpportunities: Array<{
     title: string;

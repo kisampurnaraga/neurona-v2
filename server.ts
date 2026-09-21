@@ -473,8 +473,34 @@ async function startServer() {
     }
   });
 
+  // Concurrency mutex lock per user to prevent concurrent requests bypassing monthly quota limits
+  const userAstraLocks = new Map<string, Promise<any>>();
+
+  async function runWithUserAstraLock<T>(userId: string, task: () => Promise<T>): Promise<T> {
+    while (userAstraLocks.has(userId)) {
+      try {
+        await userAstraLocks.get(userId);
+      } catch {
+        // ignore previous error
+      }
+    }
+
+    let releaseLock: () => void = () => {};
+    const lockPromise = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    userAstraLocks.set(userId, lockPromise);
+
+    try {
+      return await task();
+    } finally {
+      userAstraLocks.delete(userId);
+      releaseLock();
+    }
+  }
+
   // Helper: Enforce Server-Authoritative Astra Usage Limit
-  async function checkAstraMonthlyUsageLimit(userId: string): Promise<void> {
+  async function checkAstraMonthlyUsageLimit(userId: string): Promise<number> {
     const config = FounderService.getAstraConfig();
     const limit = config.monthlyUsageLimit || 1000;
 
@@ -503,6 +529,8 @@ async function startServer() {
       err.statusCode = 429;
       throw err;
     }
+
+    return totalRequests;
   }
 
   // User: Research Content Opportunities via Astra
@@ -517,40 +545,50 @@ async function startServer() {
         });
       }
 
-      // 1. Enforce Server-Authoritative Monthly Astra Limit
-      await checkAstraMonthlyUsageLimit(user.uid);
+      // Execute inside user concurrency lock to prevent race conditions
+      const result = await runWithUserAstraLock(user.uid, async () => {
+        // 1. Enforce Server-Authoritative Monthly Astra Limit
+        await checkAstraMonthlyUsageLimit(user.uid);
 
-      // 2. Fetch User's YouTube tokens if connected
-      let tokens: any = undefined;
-      try {
-        await withAdminDb(async (db) => {
-          const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
-          if (tokenDoc.exists) tokens = tokenDoc.data();
-        });
-      } catch (e) {
-        // ignore token fetch error
-      }
-
-      const { niche, targetAudience, seedTopic, monetizationGoal } = req.body;
-      const opportunities = await AstraService.research({ niche, targetAudience, seedTopic, monetizationGoal, tokens }, user.uid);
-
-      // Record Usage Log
-      try {
-        await withAdminDb(async (db) => {
-          await db.collection('astra_usage').add({
-            userId: user.uid,
-            userEmail: user.email || '',
-            feature: 'ASTRA_RESEARCH',
-            requestCount: 1,
-            estimatedTokens: 850,
-            timestamp: new Date().toISOString()
+        // 2. Fetch User's YouTube tokens if connected
+        let tokens: any = undefined;
+        try {
+          await withAdminDb(async (db) => {
+            const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+            if (tokenDoc.exists) tokens = tokenDoc.data();
           });
-        });
-      } catch (e) {
-        console.warn('Failed to record astra usage:', e);
-      }
+        } catch (e) {
+          // ignore token fetch error
+        }
 
-      res.json({ success: true, opportunities });
+        const { niche, targetAudience, seedTopic, monetizationGoal } = req.body;
+        const researchData = await AstraService.research({ niche, targetAudience, seedTopic, monetizationGoal, tokens }, user.uid);
+
+        // 3. Record Usage Log Server-Side
+        try {
+          await withAdminDb(async (db) => {
+            await db.collection('astra_usage').add({
+              userId: user.uid,
+              userEmail: user.email || '',
+              feature: 'ASTRA_RESEARCH',
+              requestCount: 1,
+              estimatedTokens: 850,
+              timestamp: new Date().toISOString()
+            });
+          });
+        } catch (e) {
+          console.warn('Failed to record astra usage:', e);
+        }
+
+        return researchData;
+      });
+
+      res.json({
+        success: true,
+        status: result.status,
+        researchStatus: result.status,
+        opportunities: result.opportunities
+      });
     } catch (err: any) {
       const statusCode = err.statusCode || 500;
       res.status(statusCode).json({ error: err.message || "Research request failed" });
@@ -569,27 +607,31 @@ async function startServer() {
         });
       }
 
-      // Enforce Usage Limit
-      await checkAstraMonthlyUsageLimit(user.uid);
+      const plan = await runWithUserAstraLock(user.uid, async () => {
+        // Enforce Usage Limit
+        await checkAstraMonthlyUsageLimit(user.uid);
 
-      const { opportunity } = req.body;
-      const plan = await AstraService.generateContentPlan(opportunity || {}, user.uid);
+        const { opportunity } = req.body;
+        const generatedPlan = await AstraService.generateContentPlan(opportunity || {}, user.uid);
 
-      // Record Usage Log
-      try {
-        await withAdminDb(async (db) => {
-          await db.collection('astra_usage').add({
-            userId: user.uid,
-            userEmail: user.email || '',
-            feature: 'ASTRA_CONTENT_PLAN',
-            requestCount: 1,
-            estimatedTokens: 950,
-            timestamp: new Date().toISOString()
+        // Record Usage Log
+        try {
+          await withAdminDb(async (db) => {
+            await db.collection('astra_usage').add({
+              userId: user.uid,
+              userEmail: user.email || '',
+              feature: 'ASTRA_CONTENT_PLAN',
+              requestCount: 1,
+              estimatedTokens: 950,
+              timestamp: new Date().toISOString()
+            });
           });
-        });
-      } catch (e) {
-        console.warn('Failed to record astra usage:', e);
-      }
+        } catch (e) {
+          console.warn('Failed to record astra usage:', e);
+        }
+
+        return generatedPlan;
+      });
 
       res.json({ success: true, plan });
     } catch (err: any) {
@@ -607,11 +649,34 @@ async function startServer() {
         return res.status(403).json({ error: "Creator Autopilot adalah fitur Premium.", code: "ENTITLEMENT_LOCKED" });
       }
 
-      const { history } = req.body;
-      const learning = await AstraService.analyzePerformance(user.uid, history || []);
+      const learning = await runWithUserAstraLock(user.uid, async () => {
+        await checkAstraMonthlyUsageLimit(user.uid);
+
+        const { history } = req.body;
+        const result = await AstraService.analyzePerformance(user.uid, history || []);
+
+        try {
+          await withAdminDb(async (db) => {
+            await db.collection('astra_usage').add({
+              userId: user.uid,
+              userEmail: user.email || '',
+              feature: 'ASTRA_LEARNING_LOOP',
+              requestCount: 1,
+              estimatedTokens: 750,
+              timestamp: new Date().toISOString()
+            });
+          });
+        } catch (e) {
+          console.warn('Failed to record astra usage:', e);
+        }
+
+        return result;
+      });
+
       res.json({ success: true, learning });
     } catch (err: any) {
-      res.status(500).json({ error: err.message || "Learning analysis failed" });
+      const statusCode = err.statusCode || 500;
+      res.status(statusCode).json({ error: err.message || "Learning analysis failed" });
     }
   });
 

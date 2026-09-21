@@ -181,11 +181,10 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Astra Usage Logs
+    // Astra Usage Logs - Server-authoritative writes only (Admin SDK)
     match /astra_usage/{logId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow write: if false;
     }
   }
 }
