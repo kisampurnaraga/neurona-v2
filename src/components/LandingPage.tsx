@@ -92,11 +92,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const faqs = [
     {
       q: 'Bagaimana cara kerja dari Storyboard sampai menjadi video?',
-      a: 'Cara kerjanya sangat gampang: (1) Masuk ke salah satu dari 5 Studio AI Spesialis kami (Studio Affiliate, Animasi, Edukasi, Podcast, atau Film). Masukkan ide atau nama produk Anda, dan AI langsung menyusun storyboard adegan per adegan (scene 1 sampai selesai). (2) Setelah storyboard muncul, klik tombol "Export Prompt" — semua prompt visual tiap adegan otomatis tersusun rapi. (3) Buka platform generate video favorit Anda seperti Google Flow, Google Chat Gemini, Kling AI, Runway Gen-3, atau Luma, lalu paste prompt tersebut. Video sinematik Anda langsung siap!'
+      a: 'Cara kerjanya sangat gampang: (1) Masuk ke salah satu Studio AI Spesialis kami (Studio Affiliate, Dongeng, Animasi, Edukasi, Podcast, atau Film). Masukkan ide atau nama produk Anda, dan AI langsung menyusun storyboard adegan per adegan (scene 1 sampai selesai). (2) Setelah storyboard muncul, klik tombol "Export Prompt" — semua prompt visual tiap adegan otomatis tersusun rapi. (3) Buka platform generate video favorit Anda seperti Google Flow, Google Chat Gemini, Kling AI, Runway Gen-3, atau Luma, lalu paste prompt tersebut. Video sinematik Anda langsung siap!'
     },
     {
-      q: 'Apa saja 5 Studio AI yang disediakan dan perbedaannya?',
-      a: 'Kami menyediakan 5 studio spesialis siap pakai: (1) Studio Affiliate untuk video iklan TikTok Shop & Shopee dengan hook konversi tinggi, (2) Studio Animasi untuk kartun 3D/2D, anime, dan konsistensi karakter fabel, (3) Studio Edukasi untuk tutorial sains, fakta sejarah, dan infografis, (4) Studio Podcast untuk wawancara multi-angle & klip inspiratif, serta (5) Studio Film untuk naskah layar lebar 8K dan trailer sinematik. Semua studio ini langsung aktif untuk Anda!'
+      q: 'Apa saja pilihan Studio AI yang disediakan dan perbedaannya?',
+      a: 'Kami menyediakan studio spesialis siap pakai: (1) Studio Affiliate untuk video iklan TikTok Shop & Shopee dengan hook konversi tinggi, (2) Studio Dongeng untuk cerita anak bermoral & fabel bergambar, (3) Studio Animasi untuk kartun 3D/2D, anime, dan konsistensi karakter, (4) Studio Edukasi untuk tutorial sains, fakta sejarah, dan infografis, (5) Studio Podcast untuk wawancara multi-angle & klip inspiratif, serta (6) Studio Film untuk naskah layar lebar 8K dan trailer sinematik. Semua studio ini langsung aktif untuk Anda!'
     },
     {
       q: 'Platform generate video apa saja yang kompatibel dengan hasil Export Prompt?',
@@ -127,7 +127,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="font-bold text-amber-300 flex items-center gap-1">
               <Flame className={`w-4 h-4 ${isFlashSaleActive ? 'text-rose-400 fill-rose-400' : 'text-slate-400'}`} /> {isFlashSaleActive ? 'FLASH SALE PROMO:' : 'HARGA NORMAL:'}
             </span>
-            <span className="hidden sm:inline text-slate-200">Aplikasi Storyboard AI 5 Studio (Affiliate, Animasi, Edukasi, Podcast, Film) Seumur Hidup Hanya</span>
+            <span className="hidden sm:inline text-slate-200">Aplikasi Storyboard AI Multi-Studio (Affiliate, Dongeng, Animasi, Edukasi, Podcast, Film) Seumur Hidup Hanya</span>
             <strong className="bg-rose-500 text-white px-2 py-0.5 rounded font-black text-xs">
               Rp {displayPrice.toLocaleString('id-ID')}
             </strong>
@@ -163,7 +163,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Tagline Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-900/40 border border-cyan-500/40 rounded-full text-cyan-300 font-bold text-xs mb-6 uppercase tracking-widest backdrop-blur-md shadow-lg shadow-cyan-500/10">
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>Aplikasi AI Storyboard 5-in-1 & Export Prompt Video #1</span>
+              <span>Aplikasi AI Storyboard Multi-Studio & Export Prompt Video #1</span>
             </div>
 
             {/* Main Headline */}
@@ -176,14 +176,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             {/* Subheadline / Value Proposition */}
             <p className="max-w-3xl mx-auto text-base sm:text-lg md:text-xl text-slate-300 font-normal leading-relaxed mb-8">
-              Hasilkan alur storyboard iklan, kartun animasi, konten edukasi, podcast, hingga naskah film pendek multi-scene otomatis dalam hitungan detik. Dilengkapi <strong className="text-cyan-300">5 Studio AI Spesialis (Affiliate, Animasi, Edukasi, Podcast, & Film)</strong> dengan fitur <strong className="text-amber-300">1-Click Export Prompt</strong> yang siap di-generate jadi video sinematik di Google Flow, Google Chat Gemini, Kling AI, dan Runway tanpa biaya langganan!
+              Hasilkan alur storyboard iklan, dongeng anak fabel, kartun animasi, konten edukasi, podcast, hingga naskah film pendek multi-scene otomatis dalam hitungan detik. Dilengkapi <strong className="text-cyan-300">Studio AI Spesialis (Affiliate, Dongeng, Animasi, Edukasi, Podcast, & Film)</strong> dengan fitur <strong className="text-amber-300">1-Click Export Prompt</strong> yang siap di-generate jadi video sinematik di Google Flow, Google Chat Gemini, Kling AI, dan Runway tanpa biaya langganan!
             </p>
 
             {/* Key Value Badges */}
             <div className="flex flex-wrap items-center justify-center gap-3 mb-10 text-xs sm:text-sm font-semibold">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/40 text-cyan-200">
                 <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
-                Tersedia 5 Studio AI Spesialis
+                Tersedia Multi-Studio AI Spesialis
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-amber-500/40 text-amber-200">
                 <Zap className="w-4 h-4 text-amber-400 shrink-0" />
@@ -218,7 +218,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       </span>
                     </div>
                     <span className="inline-block mt-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                      ⚡ Sekali Bayar • Akses Seumur Hidup ke Semua 5 Studio
+                      ⚡ Sekali Bayar • Akses Seumur Hidup ke Seluruh Studio
                     </span>
                   </div>
 
@@ -234,7 +234,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     onClick={onRegisterClick}
                     className="w-full sm:flex-1 py-4 px-6 bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 hover:from-blue-500 hover:to-cyan-300 text-slate-950 font-black text-base rounded-2xl shadow-xl shadow-cyan-500/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 group"
                   >
-                    <span>Dapatkan Akses 5 Studio (Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')})</span>
+                    <span>Dapatkan Akses Multi-Studio (Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')})</span>
                     <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                   </button>
 
@@ -243,13 +243,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     className="w-full sm:w-auto py-4 px-6 bg-slate-800/80 hover:bg-slate-700/80 text-white font-bold text-sm rounded-2xl border border-slate-700 transition-all hover:border-slate-600 whitespace-nowrap flex items-center justify-center gap-2"
                   >
                     <SplitSquareVertical className="w-4 h-4 text-cyan-400" />
-                    <span>Lihat 5 Studio</span>
+                    <span>Lihat Pilihan Studio</span>
                   </button>
                 </div>
 
                 <div className="mt-4 pt-3 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" /> 5 Studio AI Spesialis
+                    <ShieldCheck className="w-4 h-4 text-cyan-400" /> Studio AI Spesialis
                   </span>
                   <span className="flex items-center gap-1">
                     <Zap className="w-4 h-4 text-amber-400" /> 1-Click Export Prompt
@@ -309,7 +309,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Pilih Studio & Masukkan Ide</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-4 flex-1">
-                Pilih salah satu dari <strong>5 Studio AI Spesialis</strong> (Studio Affiliate, Animasi, Edukasi, Podcast, atau Film). Masukkan nama produk atau ide video Anda. AI langsung menyusun visual adegan demi adegan lengkap dengan prompt sinematik siap render.
+                Pilih salah satu dari <strong>Studio AI Spesialis</strong> (Studio Affiliate, Dongeng, Animasi, Edukasi, Podcast, atau Film). Masukkan nama produk atau ide video Anda. AI langsung menyusun visual adegan demi adegan lengkap dengan prompt sinematik siap render.
               </p>
               <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800 text-xs text-slate-300 font-mono">
                 💡 <span className="text-cyan-400 font-semibold">Ide:</span> "Serum wajah anti-kusam untuk konten affiliate TikTok"
@@ -499,17 +499,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">
-              Multi-Studio AI Suite (5-in-1)
+              Multi-Studio AI Suite
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              5 Pilihan Studio AI Spesialis
+              Pilihan Studio AI Spesialis
             </h2>
             <p className="text-slate-400 mt-3 text-base sm:text-lg">
-              Setiap kategori konten membutuhkan formula prompt dan visual storytelling yang berbeda. Kami sediakan 5 studio khusus dalam satu akun seumur hidup:
+              Setiap kategori konten membutuhkan formula prompt dan visual storytelling yang berbeda. Kami sediakan studio khusus dalam satu akun seumur hidup:
             </p>
           </div>
 
-          {/* 5 Studio Cards Grid */}
+          {/* Studio Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             
             {/* 1. Studio Affiliate */}
@@ -526,7 +526,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
                 Didesain khusus untuk kreator TikTok Shop, Shopee Affiliate, dan IG Reels. Menghasilkan hook 3 detik penahan scroll, visual unboxing dramatis, macro detail produk, dan Call-to-Action konversi tinggi.
               </p>
-              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400">
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
                 <div className="flex items-center gap-1.5 text-amber-300 font-medium">
                   <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Hook Formula AIDA & Problem-Solution
                 </div>
@@ -537,9 +537,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> 1-Click Export Prompt Siap Render Video
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Affiliate</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
             </div>
 
-            {/* 2. Studio Animasi */}
+            {/* 2. Studio Dongeng */}
+            <div className="bg-slate-900/80 border border-pink-500/30 rounded-3xl p-6 sm:p-7 hover:border-pink-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-pink-500/5">
+              <div className="flex items-center justify-between mb-5">
+                <div className="w-12 h-12 rounded-2xl bg-pink-500/20 border border-pink-500/40 text-pink-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Wand2 className="w-6 h-6" />
+                </div>
+                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-pink-950/80 text-pink-300 border border-pink-500/30">
+                  Dongeng & Cerita Animasi
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Studio Dongeng</h3>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
+                Rancang dongeng fabel anak, cerita bergambar fantasi, kisah berpesan moral, dan karakter fabel ramah. Menghasilkan naskah narasi mendidik dan prompt ilustrasi video animasi yang disukai anak-anak.
+              </p>
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
+                <div className="flex items-center gap-1.5 text-pink-300 font-medium">
+                  <Check className="w-3.5 h-3.5 text-pink-400 shrink-0" /> Alur Fabel & Pesan Moral Edukatif
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Visual Karakter Ramah & Cerita Storybook
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Prompt Video Animasi Siap Export 1-Klik
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-pink-600 via-rose-500 to-amber-500 hover:from-pink-500 hover:to-amber-400 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Dongeng</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
+            </div>
+
+            {/* 3. Studio Animasi */}
             <div className="bg-slate-900/80 border border-purple-500/30 rounded-3xl p-6 sm:p-7 hover:border-purple-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-purple-500/5">
               <div className="flex items-center justify-between mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -553,7 +596,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
                 Rancang serial kartun bersambung, anime Jepang, fabel dongeng anak, visual komik, dan karakter storytelling unik. Menjaga konsistensi karakter dari adegan pertama hingga tamat.
               </p>
-              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400">
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
                 <div className="flex items-center gap-1.5 text-purple-300 font-medium">
                   <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" /> Konsistensi Karakter & Gaya Visual
                 </div>
@@ -564,9 +607,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Cocok YouTube Kids & Reels Animasi
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Animasi</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
             </div>
 
-            {/* 3. Studio Edukasi */}
+            {/* 4. Studio Edukasi */}
             <div className="bg-slate-900/80 border border-emerald-500/30 rounded-3xl p-6 sm:p-7 hover:border-emerald-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-emerald-500/5">
               <div className="flex items-center justify-between mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -580,7 +631,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
                 Ubah materi rumit, sains, sejarah dunia, tips teknologi, dan keuangan menjadi video infografis interaktif berdaya sebar tinggi yang sangat mudah dipahami dan dinikmati penonton.
               </p>
-              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400">
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
                 <div className="flex items-center gap-1.5 text-emerald-300 font-medium">
                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Struktur Logis Hook - Fakta - Solusi
                 </div>
@@ -591,9 +642,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Prompt Voiceover Runtut & Menarik
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Edukasi</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
             </div>
 
-            {/* 4. Studio Podcast */}
+            {/* 5. Studio Podcast */}
             <div className="bg-slate-900/80 border border-cyan-500/30 rounded-3xl p-6 sm:p-7 hover:border-cyan-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-cyan-500/5">
               <div className="flex items-center justify-between mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -607,7 +666,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
                 Storyboard wawancara mendalam, percakapan 2 orang/tamu inspiratif, tata kamera multi-angle (Host, Guest, Wide Studio), dan klip cuplikan kutipan bijak yang siap viral di feed medsos.
               </p>
-              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400">
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
                 <div className="flex items-center gap-1.5 text-cyan-300 font-medium">
                   <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Tata Sudut Kamera Dinamis (Multi-Angle)
                 </div>
@@ -618,10 +677,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Ekstraksi Cuplikan Punchline Dialog
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Podcast</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
             </div>
 
-            {/* 5. Studio Film */}
-            <div className="bg-slate-900/80 border border-rose-500/30 rounded-3xl p-6 sm:p-7 hover:border-rose-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-rose-500/5 md:col-span-2 lg:col-span-2">
+            {/* 6. Studio Film */}
+            <div className="bg-slate-900/80 border border-rose-500/30 rounded-3xl p-6 sm:p-7 hover:border-rose-400 transition-all hover:-translate-y-1 relative group flex flex-col shadow-lg shadow-rose-500/5">
               <div className="flex items-center justify-between mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Clapperboard className="w-6 h-6" />
@@ -632,9 +699,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Studio Film</h3>
               <p className="text-slate-300 text-sm leading-relaxed mb-4 flex-1">
-                Bikin naskah narasinya hidup dengan adegan aksi laga dramatis, pencahayaan layar lebar Hollywood 8K, framing anamorphic, dan shot sequencing profesional untuk film pendek, trailer, atau video musik sinematik.
+                Bikin adegan aksi laga dramatis, pencahayaan layar lebar Hollywood 8K, framing anamorphic, dan shot sequencing profesional untuk film pendek, trailer, atau video musik sinematik.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-slate-800 text-xs text-slate-400">
+              <div className="space-y-1.5 pt-3 border-t border-slate-800 text-xs text-slate-400 mb-5">
                 <div className="flex items-center gap-1.5 text-rose-300 font-medium">
                   <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" /> Lighting Sinematik 8K & Moody Anamorphic
                 </div>
@@ -642,12 +709,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Shot Sequencing Dramatis (Wide to Macro)
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-300">
-                  <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Naskah Skenario & Prompt Kling / Runway Gen-3
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Kompatibel Format Layar 16:9 & 21:9 Sinema
+                  <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> Kompatibel Format Layar 16:9 & 21:9 Sinema
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 group/btn"
+              >
+                <span>Coba Studio Film</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
+              </button>
             </div>
 
           </div>
@@ -656,17 +728,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="mt-10 max-w-4xl mx-auto bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-cyan-500/40 rounded-2xl p-5 text-center flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-left">
               <span className="text-xs font-bold text-amber-300 uppercase tracking-wider block mb-1">
-                Akses Komplit Seluruh 5 Studio Sekaligus
+                Akses Komplit Seluruh Studio Sekaligus
               </span>
               <p className="text-sm text-slate-200">
-                Anda tidak perlu membeli lisensi terpisah. Cukup 1 kali bayar Rp 99.000 seumur hidup untuk menikmati kelima studio di atas!
+                Anda tidak perlu membeli lisensi terpisah. Cukup 1 kali bayar Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')} seumur hidup untuk menikmati seluruh studio di atas!
               </p>
             </div>
             <button
               onClick={onRegisterClick}
               className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-cyan-500/20 whitespace-nowrap transition-all hover:scale-105"
             >
-              Klaim Semua 5 Studio (Rp 99.000) &rarr;
+              Klaim Seluruh Studio AI (Rp {(priceSetting?.promoPrice ?? 99000).toLocaleString('id-ID')}) &rarr;
             </button>
           </div>
 
@@ -771,9 +843,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/20">
                 <SplitSquareVertical className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Akses 5 Studio AI Spesialis</h3>
+              <h3 className="text-lg font-bold text-white mb-2">Akses Multi-Studio AI Spesialis</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Tersedia 5 studio AI aktif (Studio Affiliate, Animasi, Edukasi, Podcast, dan Film) sehingga Anda memiliki generator storyboard dan formula prompt khusus untuk niche konten Anda.
+                Tersedia studio AI aktif (Studio Affiliate, Dongeng, Animasi, Edukasi, Podcast, dan Film) sehingga Anda memiliki generator storyboard dan formula prompt khusus untuk niche konten Anda.
               </p>
             </div>
 
@@ -904,7 +976,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                     <Check className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-slate-200 font-medium">Akses Penuh ke 5 Studio AI (Affiliate, Animasi, Edukasi, Podcast, Film)</span>
+                  <span className="text-slate-200 font-medium">Akses Penuh ke Seluruh Studio AI (Affiliate, Dongeng, Animasi, Edukasi, Podcast, Film)</span>
                 </div>
 
                 <div className="flex items-center gap-3">

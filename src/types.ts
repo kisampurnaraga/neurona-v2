@@ -87,7 +87,7 @@ export interface WhatsappSetting {
   phoneNumber: string;
 }
 
-export type StudioCategory = 'affiliate' | 'animasi' | 'edukasi' | 'podcast' | 'film';
+export type StudioCategory = 'affiliate' | 'dongeng' | 'animasi' | 'edukasi' | 'podcast' | 'film';
 
 export interface AiStudioItem {
   id: string;

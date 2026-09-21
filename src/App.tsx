@@ -44,7 +44,8 @@ import {
   Clapperboard,
   TrendingUp,
   Award,
-  Tag
+  Tag,
+  Wand2
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -90,6 +91,16 @@ const DEFAULT_STUDIOS: AiStudioItem[] = [
     url: 'https://gemini.google.com/share/c914a0750f39?skid=ac42ba40-5fbd-49ce-a352-707a37f46227',
     note: 'Spesialis video promosi TikTok Shop, Shopee Affiliate & Reels. Formula hook AIDA, unboxing produk dramatis, dan konversi tinggi.',
     features: ['Hook 3 Detik Scroll-Stopper', 'Macro Detail & Unboxing', '1-Click Export Prompt'],
+    isActive: true
+  },
+  {
+    id: 'studio-dongeng',
+    category: 'dongeng',
+    name: 'Studio Dongeng - Dongeng Anak & Cerita Animasi AI',
+    tag: 'Dongeng & Cerita Animasi',
+    url: 'https://gemini.google.com/',
+    note: 'Spesialis pembuat dongeng anak, alur fabel fantasi, cerita bergambar interaktif, dan animasi cerita bersambung dengan karakter visual konsisten.',
+    features: ['Alur Dongeng & Pesan Moral', 'Visual Fabel & Karakter Konsisten', 'Export Prompt Storybook 1-Klik'],
     isActive: true
   },
   {
@@ -2762,6 +2773,7 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                         <div>
                           <h2 className="text-sm font-bold text-slate-800">
                             {selectedStudioCategory === 'affiliate' ? 'Studio Affiliate AI' :
+                             selectedStudioCategory === 'dongeng' ? 'Studio Dongeng & Cerita Animasi AI' :
                              selectedStudioCategory === 'animasi' ? 'Studio Animasi & Karakter 3D AI' :
                              selectedStudioCategory === 'edukasi' ? 'Studio Edukasi & Tutorial AI' :
                              selectedStudioCategory === 'podcast' ? 'Studio Podcast & Talkshow AI' :
@@ -2840,12 +2852,16 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                       {/* Studio Suites preview pill list */}
                       <div className="mb-6 bg-slate-50/80 rounded-2xl p-4 border border-slate-100">
                         <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2.5">
-                          5 Studio Spesialis di Dalamnya:
+                          6 Studio Spesialis di Dalamnya:
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs">
                           <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 text-slate-700 font-bold shadow-xs">
                             <ShoppingBag className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span>Studio Affiliate</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 text-slate-700 font-bold shadow-xs">
+                            <Wand2 className="w-3.5 h-3.5 text-pink-600 shrink-0" />
+                            <span>Studio Dongeng</span>
                           </div>
                           <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 text-slate-700 font-bold shadow-xs">
                             <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />

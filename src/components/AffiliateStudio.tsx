@@ -26,7 +26,8 @@ import {
   ShoppingBag,
   Mic,
   BookOpen,
-  Clapperboard
+  Clapperboard,
+  Wand2
 } from 'lucide-react';
 import { 
   AspectRatio, 
@@ -73,6 +74,22 @@ export const STUDIO_CONFIGS: Record<StudioCategory, StudioConfigItem> = {
     placeholderSubject: 'Contoh: Parfum Black Oud Lonkoom / Serum Wajah',
     captionLabel: 'CAPTION TIKTOK SHOP / AFFILIATE AI',
     icon: ShoppingBag
+  },
+  dongeng: {
+    id: 'dongeng',
+    label: 'Studio Dongeng',
+    name: 'Studio Dongeng & Cerita Animasi AI',
+    subtitle: 'Generator Dongeng Anak, Fabel Fantasi, Storybook & Cerita Animasi Bergambar',
+    tag: 'Dongeng & Cerita Animasi',
+    defaultTitle: 'Dongeng Kancil & Hutan Ajaib',
+    defaultPose: 'Karakter kancil cerdik 3D dengan ekspresi ramah sedang membaca buku cerita berpendar di bawah pohon magis',
+    defaultCamera: 'Cinematic',
+    defaultAspectRatio: '9:16',
+    subjectLabel: 'Referensi Karakter Dongeng / Judul Cerita (Wajib)',
+    subjectHint: 'Unggah referensi gaya dongeng / karakter anak',
+    placeholderSubject: 'Contoh: Dongeng Kancil & Hutan Ajaib / Kisah Putri & Naga Ramah',
+    captionLabel: 'NASKAH DONGENG & PESAN MORAL AI',
+    icon: Wand2
   },
   animasi: {
     id: 'animasi',
@@ -140,7 +157,7 @@ export const STUDIO_CONFIGS: Record<StudioCategory, StudioConfigItem> = {
   }
 };
 
-const STUDIO_ORDER: StudioCategory[] = ['affiliate', 'animasi', 'edukasi', 'podcast', 'film'];
+const STUDIO_ORDER: StudioCategory[] = ['affiliate', 'dongeng', 'animasi', 'edukasi', 'podcast', 'film'];
 
 interface AffiliateStudioProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
