@@ -1,0 +1,30 @@
+{
+  "payment_config": {
+    "bankName": "Bank Mandiri",
+    "accountNumber": "1400019283746",
+    "accountHolder": "PT NEURONA TEKNOLOGI KREATIF",
+    "whatsappNumber": "628987654321",
+    "bankAccounts": [
+      {
+        "id": "acc-1",
+        "bank": "Bank Mandiri",
+        "accountNumber": "1400019283746",
+        "accountName": "PT NEURONA TEKNOLOGI KREATIF"
+      },
+      {
+        "id": "acc-2",
+        "bank": "Bank BCA",
+        "accountNumber": "8223940128",
+        "accountName": "PT NEURONA TEKNOLOGI KREATIF"
+      },
+      {
+        "id": "acc-3",
+        "bank": "GoPay / QRIS",
+        "accountNumber": "08987654321",
+        "accountName": "NEURONA REVENUE"
+      }
+    ],
+    "updatedAt": "2026-09-21T02:14:42.152Z",
+    "isConfigured": true
+  }
+}

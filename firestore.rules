@@ -147,5 +147,45 @@ service cloud.firestore {
       // Only admins can delete
       allow delete: if isAdmin();
     }
+
+    // Creator Autopilot Profiles
+    match /creator_autopilot_profiles/{profileUserId} {
+      allow read: if isSignedIn() && (request.auth.uid == profileUserId || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == profileUserId || isAdmin());
+    }
+
+    // Creator Opportunities
+    match /creator_opportunities/{oppId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
+    }
+
+    // Creator Content Plans
+    match /creator_content_plans/{planId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
+    }
+
+    // Creator Published Content
+    match /creator_published_content/{contentId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
+    }
+
+    // Creator Analytics & Learning
+    match /creator_analytics/{docId} {
+      allow read, write: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /creator_learning/{docId} {
+      allow read, write: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Astra Usage Logs
+    match /astra_usage/{logId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
   }
 }

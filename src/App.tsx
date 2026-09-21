@@ -80,6 +80,8 @@ import { LiveSalesNotification } from './components/LiveSalesNotification';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { UserAffiliateModal } from './components/UserAffiliateModal';
 import { AdminAffiliateManager } from './components/AdminAffiliateManager';
+import { CreatorAutopilotModule } from './components/creator-autopilot/CreatorAutopilotModule';
+import { AdminAstraSettings } from './components/creator-autopilot/AdminAstraSettings';
 import { PriceSetting, PaymentSetting, WhatsappSetting, AiStudioItem, StudioCategory, AffiliateProfile, AffiliateReferral, InvoiceRecord } from './types';
 
 const DEFAULT_STUDIOS: AiStudioItem[] = [
@@ -169,11 +171,14 @@ export default function App() {
   // General App State
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting>({
-    bankName: 'Bank BCA',
-    accountNumber: '1234567890',
-    accountHolder: 'Admin Neurona',
-    whatsappNumber: '628123456789'
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+    whatsappNumber: '',
+    bankAccounts: [],
+    isConfigured: false
   });
+  const [selectedPaymentBankIndex, setSelectedPaymentBankIndex] = useState<number>(0);
   const [userInvoice, setUserInvoice] = useState<InvoiceRecord | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState(false);
@@ -191,7 +196,7 @@ export default function App() {
     note: 'Studio Utama Google Gemini Flow Workspace'
   });
   const [studioList, setStudioList] = useState<AiStudioItem[]>(DEFAULT_STUDIOS);
-  const [memberViewMode, setMemberViewMode] = useState<'studios' | 'internal'>('studios');
+  const [memberViewMode, setMemberViewMode] = useState<'studios' | 'internal' | 'creator_autopilot'>('studios');
   const [selectedStudioCategory, setSelectedStudioCategory] = useState<StudioCategory>('affiliate');
   const [newStudioForm, setNewStudioForm] = useState<{ name: string; url: string; tag: string; note: string }>({
     name: '',
@@ -364,23 +369,68 @@ export default function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Load Payment Settings on Mount
+  // Load Payment Settings on Mount & Listen for Dynamic Updates
   useEffect(() => {
+    const fetchPaymentConfigFromServer = async () => {
+      try {
+        const res = await fetch('/api/public/payment-config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.paymentConfig) {
+            const cfg = data.paymentConfig;
+            setPaymentSettings(cfg);
+            setAdminBankForm({
+              bankName: cfg.bankName || '',
+              accountNumber: cfg.accountNumber || '',
+              accountHolder: cfg.accountHolder || '',
+              whatsappNumber: cfg.whatsappNumber || '',
+              bankAccounts: cfg.bankAccounts || []
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Silent public payment-config fetch warning:', err);
+      }
+    };
+
+    fetchPaymentConfigFromServer();
+
+    const handleConfigUpdated = () => {
+      fetchPaymentConfigFromServer();
+    };
+    window.addEventListener('payment-config-updated', handleConfigUpdated);
+
     const unsub = onSnapshot(doc(db, 'settings', 'payment'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as PaymentSetting;
-        setPaymentSettings(data);
+        const isConfigured = Boolean((data.bankName && data.accountNumber) || (Array.isArray(data.bankAccounts) && data.bankAccounts.length > 0));
+        const normalized: PaymentSetting = {
+          ...data,
+          bankAccounts: data.bankAccounts || (data.bankName && data.accountNumber ? [{
+            id: 'acc-1',
+            bank: data.bankName,
+            accountNumber: data.accountNumber,
+            accountName: data.accountHolder || ''
+          }] : []),
+          isConfigured
+        };
+        setPaymentSettings(normalized);
         setAdminBankForm({
           bankName: data.bankName || '',
           accountNumber: data.accountNumber || '',
           accountHolder: data.accountHolder || '',
-          whatsappNumber: data.whatsappNumber || ''
+          whatsappNumber: data.whatsappNumber || '',
+          bankAccounts: data.bankAccounts || []
         });
       }
     }, (error) => {
       console.warn('Silent read block or loading error on settings doc:', error);
     });
-    return () => unsub();
+
+    return () => {
+      window.removeEventListener('payment-config-updated', handleConfigUpdated);
+      unsub();
+    };
   }, []);
 
   // Load Price Settings on Mount (Public Read for Landing Page & Checkout)
@@ -889,7 +939,11 @@ export default function App() {
 
   // Helper: Open WhatsApp confirmation message for payment
   const handleSendWhatsappConfirmation = () => {
-    const targetWa = userInvoice?.whatsappNumber || paymentSettings.whatsappNumber || whatsappSetting.phoneNumber || '6281234567890';
+    const targetWa = userInvoice?.whatsappNumber || paymentSettings.whatsappNumber || whatsappSetting.phoneNumber || '';
+    if (!targetWa) {
+      showToast('Nomor WhatsApp admin belum dikonfigurasi. Harap hubungi Customer Service.', 'error');
+      return;
+    }
     const cleanWa = targetWa.replace(/[^0-9]/g, '');
     const formattedWa = cleanWa.startsWith('0') ? '62' + cleanWa.slice(1) : cleanWa;
 
@@ -904,6 +958,7 @@ export default function App() {
 Nomor Invoice: ${invNum}
 Nama: ${name}
 Email: ${email}
+Nomor WhatsApp: ${userProfile?.whatsapp || userInvoice?.userWhatsapp || ''}
 Nominal: ${amountStr}
 
 Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses aktivasi.`;
@@ -1031,13 +1086,40 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
     }
 
     try {
+      const bankAccounts = adminBankForm.bankAccounts && adminBankForm.bankAccounts.length > 0
+        ? adminBankForm.bankAccounts
+        : [{
+            id: 'acc-1',
+            bank: adminBankForm.bankName.trim(),
+            accountNumber: adminBankForm.accountNumber.trim(),
+            accountName: adminBankForm.accountHolder.trim()
+          }];
+
       const updatedPaymentData: PaymentSetting = {
         bankName: adminBankForm.bankName.trim(),
         accountNumber: adminBankForm.accountNumber.trim(),
         accountHolder: adminBankForm.accountHolder.trim(),
-        whatsappNumber: adminBankForm.whatsappNumber?.trim() || whatsappSetting.phoneNumber || ''
+        whatsappNumber: adminBankForm.whatsappNumber?.trim() || whatsappSetting.phoneNumber || '',
+        bankAccounts,
+        isConfigured: true
       };
 
+      // 1. Save to server persistent API (SQLite backend + FounderService)
+      try {
+        const token = currentUser ? await currentUser.getIdToken() : '';
+        await fetch('/api/v1/founder/payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(updatedPaymentData)
+        });
+      } catch (apiErr) {
+        console.warn('Server payment API call warning:', apiErr);
+      }
+
+      // 2. Save to Firestore
       await setDoc(doc(db, 'settings', 'payment'), updatedPaymentData, { merge: true });
 
       if (adminBankForm.whatsappNumber?.trim()) {
@@ -1045,6 +1127,9 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
           phoneNumber: adminBankForm.whatsappNumber.trim()
         }, { merge: true });
       }
+
+      setPaymentSettings(updatedPaymentData);
+      window.dispatchEvent(new CustomEvent('payment-config-updated', { detail: updatedPaymentData }));
 
       showToast('Pengaturan rekening & WhatsApp pembayaran berhasil disimpan!', 'success');
     } catch (error) {
@@ -1579,6 +1664,17 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                   <BrainCircuit className="w-4 h-4 shrink-0" />
                   <span>Link AI Studio</span>
                 </button>
+                <button 
+                  onClick={() => setAdminActiveTab('astra')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+                    adminActiveTab === 'astra' 
+                      ? 'bg-purple-50 text-purple-700' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Zap className="w-4 h-4 shrink-0 text-purple-600" />
+                  <span>API Key Astra (GPT)</span>
+                </button>
               </aside>
 
               {/* Detail Content */}
@@ -1844,41 +1940,175 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                   <div>
                     <div className="mb-6">
                       <h2 className="text-xl font-bold text-slate-800 tracking-tight">Atur Rekening & WhatsApp Pembayaran</h2>
-                      <p className="text-xs text-slate-500 mt-1">Data rekening dan WhatsApp ini akan tampil otomatis di faktur pembayaran pendaftaran user</p>
+                      <p className="text-xs text-slate-500 mt-1">Data rekening dan WhatsApp ini tersimpan secara persistent di database dan tampil otomatis di faktur pembayaran pendaftaran user</p>
                     </div>
 
-                    <form onSubmit={handleSaveBankSettings} className="space-y-5 max-w-lg">
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700">Nama Bank / E-Wallet</label>
-                        <input 
-                          type="text" 
-                          placeholder="Contoh: Bank BCA, Bank Mandiri, GoPay" 
-                          value={adminBankForm.bankName}
-                          onChange={(e) => setAdminBankForm({...adminBankForm, bankName: e.target.value})}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700">Nomor Rekening</label>
-                        <input 
-                          type="text" 
-                          placeholder="Contoh: 8223940128" 
-                          value={adminBankForm.accountNumber}
-                          onChange={(e) => setAdminBankForm({...adminBankForm, accountNumber: e.target.value})}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700">Atas Nama (A/N)</label>
-                        <input 
-                          type="text" 
-                          placeholder="Contoh: PT Neuronan Teknologi" 
-                          value={adminBankForm.accountHolder}
-                          onChange={(e) => setAdminBankForm({...adminBankForm, accountHolder: e.target.value})}
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm"
-                        />
+                    <form onSubmit={handleSaveBankSettings} className="space-y-6 max-w-xl">
+                      {/* Primary Bank Account */}
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Rekening Utama</span>
+                          <span className="text-[10px] font-bold bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full">Tampil Default</span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">Nama Bank / E-Wallet Utama</label>
+                          <input 
+                            type="text" 
+                            placeholder="Contoh: Bank BCA, Bank Mandiri, GoPay" 
+                            value={adminBankForm.bankName}
+                            onChange={(e) => {
+                              const newName = e.target.value;
+                              setAdminBankForm(prev => {
+                                const accounts = prev.bankAccounts ? [...prev.bankAccounts] : [];
+                                if (accounts.length > 0) {
+                                  accounts[0] = { ...accounts[0], bank: newName };
+                                }
+                                return { ...prev, bankName: newName, bankAccounts: accounts };
+                              });
+                            }}
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">Nomor Rekening Utama</label>
+                          <input 
+                            type="text" 
+                            placeholder="Contoh: 8223940128" 
+                            value={adminBankForm.accountNumber}
+                            onChange={(e) => {
+                              const newNum = e.target.value;
+                              setAdminBankForm(prev => {
+                                const accounts = prev.bankAccounts ? [...prev.bankAccounts] : [];
+                                if (accounts.length > 0) {
+                                  accounts[0] = { ...accounts[0], accountNumber: newNum };
+                                }
+                                return { ...prev, accountNumber: newNum, bankAccounts: accounts };
+                              });
+                            }}
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700">Atas Nama (A/N) Rekening Utama</label>
+                          <input 
+                            type="text" 
+                            placeholder="Contoh: PT Neurona Media Kreatif" 
+                            value={adminBankForm.accountHolder}
+                            onChange={(e) => {
+                              const newHolder = e.target.value;
+                              setAdminBankForm(prev => {
+                                const accounts = prev.bankAccounts ? [...prev.bankAccounts] : [];
+                                if (accounts.length > 0) {
+                                  accounts[0] = { ...accounts[0], accountName: newHolder };
+                                }
+                                return { ...prev, accountHolder: newHolder, bankAccounts: accounts };
+                              });
+                            }}
+                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-sm"
+                          />
+                        </div>
                       </div>
 
+                      {/* Additional Bank Accounts List */}
+                      <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <div>
+                            <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Rekening Tambahan (Opsional)</span>
+                            <p className="text-[11px] text-slate-500">Mendukung multi-rekening (Mandiri, BRI, BNI, Dana, GoPay, dll.)</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentAccounts = adminBankForm.bankAccounts && adminBankForm.bankAccounts.length > 0
+                                ? [...adminBankForm.bankAccounts]
+                                : (adminBankForm.bankName && adminBankForm.accountNumber ? [{
+                                    id: 'acc-1',
+                                    bank: adminBankForm.bankName,
+                                    accountNumber: adminBankForm.accountNumber,
+                                    accountName: adminBankForm.accountHolder
+                                  }] : []);
+                              const newAcc = {
+                                id: `acc-${Date.now()}`,
+                                bank: '',
+                                accountNumber: '',
+                                accountName: adminBankForm.accountHolder || ''
+                              };
+                              setAdminBankForm({
+                                ...adminBankForm,
+                                bankAccounts: [...currentAccounts, newAcc]
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Rekening</span>
+                          </button>
+                        </div>
+
+                        {adminBankForm.bankAccounts && adminBankForm.bankAccounts.length > 1 && (
+                          <div className="space-y-3 pt-1">
+                            {adminBankForm.bankAccounts.slice(1).map((acc, index) => {
+                              const actualIdx = index + 1;
+                              return (
+                                <div key={acc.id || actualIdx} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 relative">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-slate-600">Rekening #{actualIdx + 1}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = adminBankForm.bankAccounts!.filter((_, i) => i !== actualIdx);
+                                        setAdminBankForm({ ...adminBankForm, bankAccounts: updated });
+                                      }}
+                                      className="text-rose-500 hover:text-rose-700 p-1 text-xs flex items-center gap-0.5"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Hapus</span>
+                                    </button>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <input 
+                                      type="text" 
+                                      placeholder="Bank / E-Wallet" 
+                                      value={acc.bank}
+                                      onChange={(e) => {
+                                        const updated = [...adminBankForm.bankAccounts!];
+                                        updated[actualIdx].bank = e.target.value;
+                                        setAdminBankForm({ ...adminBankForm, bankAccounts: updated });
+                                      }}
+                                      className="px-3 py-1.5 text-xs rounded-lg border border-slate-200"
+                                    />
+                                    <input 
+                                      type="text" 
+                                      placeholder="Nomor Rekening" 
+                                      value={acc.accountNumber}
+                                      onChange={(e) => {
+                                        const updated = [...adminBankForm.bankAccounts!];
+                                        updated[actualIdx].accountNumber = e.target.value;
+                                        setAdminBankForm({ ...adminBankForm, bankAccounts: updated });
+                                      }}
+                                      className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 font-mono"
+                                    />
+                                    <input 
+                                      type="text" 
+                                      placeholder="Atas Nama" 
+                                      value={acc.accountName}
+                                      onChange={(e) => {
+                                        const updated = [...adminBankForm.bankAccounts!];
+                                        updated[actualIdx].accountName = e.target.value;
+                                        setAdminBankForm({ ...adminBankForm, bankAccounts: updated });
+                                      }}
+                                      className="px-3 py-1.5 text-xs rounded-lg border border-slate-200"
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* WhatsApp Confirmation Number */}
                       <div className="space-y-1.5">
                         <label className="text-sm font-bold text-slate-700">Nomor WhatsApp Konfirmasi Pembayaran</label>
                         <input 
@@ -2273,6 +2503,16 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                   </div>
                 )}
 
+                {/* Tab: Astra Settings */}
+                {adminActiveTab === 'astra' && (
+                  <div className="flex-1 flex flex-col">
+                    <AdminAstraSettings
+                      getAuthToken={async () => currentUser ? await currentUser.getIdToken() : null}
+                      showToast={showToast}
+                    />
+                  </div>
+                )}
+
                 {/* Tab: Affiliate Reports & Management */}
                 {adminActiveTab === 'affiliate' && (
                   <div className="flex-1 flex flex-col">
@@ -2638,48 +2878,104 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                   </div>
 
                   {/* Destination Bank Details Card */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/60 via-slate-50 to-cyan-50/40 border border-blue-100 mb-6">
-                    <span className="text-[11px] font-black text-blue-700 uppercase tracking-widest block mb-3">
-                      Tujuan Transfer Pembayaran
-                    </span>
+                  {(() => {
+                    const availableAccounts = (paymentSettings?.bankAccounts && paymentSettings.bankAccounts.length > 0)
+                      ? paymentSettings.bankAccounts
+                      : ((userInvoice?.bankName || paymentSettings?.bankName) && (userInvoice?.accountNumber || paymentSettings?.accountNumber))
+                        ? [{
+                            id: 'acc-main',
+                            bank: userInvoice?.bankName || paymentSettings?.bankName || '',
+                            accountNumber: userInvoice?.accountNumber || paymentSettings?.accountNumber || '',
+                            accountName: userInvoice?.accountHolder || paymentSettings?.accountHolder || ''
+                          }]
+                        : [];
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-xs font-bold text-slate-500 block">Bank / E-Wallet</span>
-                        <span className="font-extrabold text-slate-900 text-base">{userInvoice?.bankName || paymentSettings.bankName}</span>
-                      </div>
+                    const currentAccount = availableAccounts[selectedPaymentBankIndex] || availableAccounts[0];
+                    const hasConfiguredAccount = Boolean(currentAccount && currentAccount.accountNumber && currentAccount.accountNumber.trim());
 
-                      <div>
-                        <span className="text-xs font-bold text-slate-500 block">Nomor Rekening</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-slate-900 text-lg tracking-wider font-mono select-all">
-                            {userInvoice?.accountNumber || paymentSettings.accountNumber}
+                    if (!hasConfiguredAccount) {
+                      return (
+                        <div className="p-5 rounded-2xl bg-amber-50/90 border border-amber-200 mb-6 text-center">
+                          <AlertCircle className="w-7 h-7 text-amber-600 mx-auto mb-2" />
+                          <h4 className="font-extrabold text-amber-900 text-sm mb-1">Konfigurasi Rekening Pembayaran Belum Tersedia</h4>
+                          <p className="text-xs text-amber-700 leading-relaxed max-w-md mx-auto">
+                            Rekening pembayaran resmi sedang diperbarui oleh Founder/Admin. Anda tetap dapat melanjutkan konfirmasi langsung melalui WhatsApp di bawah.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/60 via-slate-50 to-cyan-50/40 border border-blue-100 mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[11px] font-black text-blue-700 uppercase tracking-widest block">
+                            Tujuan Transfer Pembayaran
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const accNum = userInvoice?.accountNumber || paymentSettings.accountNumber;
-                              if (accNum) {
-                                navigator.clipboard.writeText(accNum);
-                                setCopiedAccount(true);
-                                showToast('Nomor rekening berhasil disalin!', 'success');
-                                setTimeout(() => setCopiedAccount(false), 2000);
-                              }
-                            }}
-                            className="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs"
-                          >
-                            {copiedAccount ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copiedAccount ? 'Tersalin' : 'Salin'}</span>
-                          </button>
+                          {availableAccounts.length > 1 && (
+                            <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                              {availableAccounts.length} Pilihan Bank / E-Wallet
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Account Selector if multiple accounts exist */}
+                        {availableAccounts.length > 1 && (
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {availableAccounts.map((acc, idx) => (
+                              <button
+                                key={acc.id || idx}
+                                type="button"
+                                onClick={() => setSelectedPaymentBankIndex(idx)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                  (selectedPaymentBankIndex === idx || (!availableAccounts[selectedPaymentBankIndex] && idx === 0))
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {acc.bank || `Rekening #${idx + 1}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-white/80 p-4 rounded-xl border border-blue-50">
+                          <div>
+                            <span className="text-xs font-bold text-slate-500 block">Bank / E-Wallet</span>
+                            <span className="font-extrabold text-slate-900 text-base">{currentAccount.bank}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-xs font-bold text-slate-500 block">Nomor Rekening</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-slate-900 text-lg tracking-wider font-mono select-all">
+                                {currentAccount.accountNumber}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (currentAccount.accountNumber) {
+                                    navigator.clipboard.writeText(currentAccount.accountNumber);
+                                    setCopiedAccount(true);
+                                    showToast('Nomor rekening berhasil disalin!', 'success');
+                                    setTimeout(() => setCopiedAccount(false), 2000);
+                                  }
+                                }}
+                                className="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs"
+                              >
+                                {copiedAccount ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedAccount ? 'Tersalin' : 'Salin'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <span className="text-xs font-bold text-slate-500 block">Atas Nama (A/N)</span>
+                            <span className="font-extrabold text-slate-900 text-base">{currentAccount.accountName || currentAccount.accountHolder || '-'}</span>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="sm:col-span-2">
-                        <span className="text-xs font-bold text-slate-500 block">Atas Nama (A/N)</span>
-                        <span className="font-extrabold text-slate-900 text-base">{userInvoice?.accountHolder || paymentSettings.accountHolder}</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Payment Instructions */}
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 space-y-2.5 text-xs text-slate-600">
@@ -2758,8 +3054,31 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
 
             {activeTab === 'user_dashboard' && (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
-                {/* Mode: Internal Storyboard Studio */}
-                {memberViewMode === 'internal' ? (
+                {/* Mode: Creator Autopilot Module */}
+                {memberViewMode === 'creator_autopilot' ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-slate-900 rounded-2xl border border-slate-800 shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => setMemberViewMode('studios')}
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+                      >
+                        <span>← Kembali ke Dashboard Utama</span>
+                      </button>
+                      <span className="text-xs text-purple-400 font-bold uppercase tracking-wider">CREATOR AUTOPILOT ENGINE</span>
+                    </div>
+
+                    <CreatorAutopilotModule
+                      getAuthToken={async () => currentUser ? await currentUser.getIdToken() : null}
+                      isAdmin={userProfile?.role === 'admin' || currentUser?.email === 'ia.asep12@gmail.com'}
+                      onSendToGeminiWorkspace={(plan) => {
+                        showToast(`Content Plan "${plan.title}" dikirim ke Gemini Workspace!`, 'success');
+                        handleOpenStudio(aiStudioSetting.url || STUDIO_SHORT_URL);
+                      }}
+                      onNavigateToPayment={() => setActiveTab('payment_instructions')}
+                    />
+                  </div>
+                ) : memberViewMode === 'internal' ? (
                   <div className="space-y-6">
                     <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
                       <div className="flex items-center gap-3">
@@ -2924,6 +3243,42 @@ Instruksi: Mohon lampirkan foto/screenshot bukti transfer Anda untuk proses akti
                       <div>
                         <strong className="block mb-0.5">Akses Khusus Member Terverifikasi:</strong>
                         Semua link direct ruang kerja studio ini terproteksi secara otomatis. Pengguna yang belum login atau non-member tidak dapat membuka atau menyalin tautan ini.
+                      </div>
+                    </div>
+
+                    {/* Creator Autopilot Add-on Card */}
+                    <div className="w-full max-w-2xl mt-4 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-purple-500/30 relative overflow-hidden group text-left">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-500/20 transition-all duration-700"></div>
+
+                      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 bg-purple-500/30 border border-purple-400/40 text-purple-200 text-[10px] font-black rounded-full uppercase tracking-wider">
+                              PREMIUM ADD-ON
+                            </span>
+                            <span className="px-2 py-0.5 bg-indigo-500/30 border border-indigo-400/40 text-indigo-300 text-[10px] font-black rounded-md tracking-wider">
+                              GPT Astra Growth Engine
+                            </span>
+                          </div>
+
+                          <h3 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-purple-400" />
+                            <span>CREATOR AUTOPILOT (YouTube Shorts)</span>
+                          </h3>
+
+                          <p className="text-xs sm:text-sm text-slate-300 max-w-md leading-relaxed">
+                            Bantu channel YouTube Shorts Anda tumbuh otomatis. Riset tren, formula Hook virality, skrip otomatis, hingga optimasi monetisasi.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setMemberViewMode('creator_autopilot')}
+                          className="px-6 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-purple-600/25 transition-all flex items-center justify-center gap-2 shrink-0 group-hover:scale-105"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span>Buka Creator Autopilot</span>
+                        </button>
                       </div>
                     </div>
 

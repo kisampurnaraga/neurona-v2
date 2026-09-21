@@ -47,11 +47,25 @@ export interface AffiliateReferral {
   approvedAt?: string;
 }
 
+export interface BankAccount {
+  id: string;
+  bank: string;
+  accountNumber: string;
+  accountName: string;
+}
+
 export interface PaymentSetting {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
   whatsappNumber?: string;
+  bankAccounts?: BankAccount[];
+  isConfigured?: boolean;
+  updatedAt?: string;
+}
+
+export interface PaymentConfig extends PaymentSetting {
+  isConfigured: boolean;
 }
 
 export interface InvoiceRecord {

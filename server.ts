@@ -7,6 +7,9 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { FounderService } from "./src/server/founderService.js";
+import { AstraService } from "./src/server/astraService.js";
+import { YouTubeService } from "./src/server/youtubeService.js";
 
 // Safely load local firebase configuration
 let firebaseConfig: any = {};
@@ -23,27 +26,32 @@ const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || firebaseConf
 const FIREBASE_STORAGE_BUCKET = process.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || `${FIREBASE_PROJECT_ID}.appspot.com`;
 const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId || 'ai-studio-bd97f99d-b1b8-4902-ac5c-be804aaceda1';
 
+// Initialize Firebase Admin SDK safely
+let adminApp: any = null;
+try {
+  if (!getApps().length) {
+    adminApp = initializeApp({
+      projectId: FIREBASE_PROJECT_ID,
+      storageBucket: FIREBASE_STORAGE_BUCKET
+    });
+  } else {
+    adminApp = getApps()[0];
+  }
+} catch (e) {
+  console.warn('Firebase Admin app initialization warning:', e);
+  adminApp = getApps().length ? getApps()[0] : null;
+}
+
 // Helper to get Firestore instance with correct database ID
 function getAdminDb() {
   try {
-    return getFirestore(FIRESTORE_DATABASE_ID);
+    const app = adminApp || (getApps().length ? getApps()[0] : undefined);
+    if (app && FIRESTORE_DATABASE_ID && FIRESTORE_DATABASE_ID !== '(default)') {
+      return getFirestore(app, FIRESTORE_DATABASE_ID);
+    }
+    return app ? getFirestore(app) : getFirestore();
   } catch (e) {
     return getFirestore();
-  }
-}
-
-// Initialize Firebase Admin SDK safely
-if (!getApps().length) {
-  try {
-    initializeApp({
-      projectId: FIREBASE_PROJECT_ID,
-      storageBucket: FIREBASE_STORAGE_BUCKET
-    });
-  } catch (e) {
-    initializeApp({
-      projectId: FIREBASE_PROJECT_ID,
-      storageBucket: FIREBASE_STORAGE_BUCKET
-    });
   }
 }
 
@@ -112,6 +120,38 @@ async function verifyAdminToken(req: express.Request, res: express.Response, nex
   });
 }
 
+// Helper: Check Creator Autopilot entitlement
+async function checkCreatorEntitlement(userId: string, email?: string): Promise<{ active: boolean; status: 'LOCKED' | 'ACTIVE' | 'EXPIRED' }> {
+  if (email === 'ia.asep12@gmail.com' || email === 'admin@neuronan.com') {
+    return { active: true, status: 'ACTIVE' };
+  }
+
+  try {
+    const db = getAdminDb();
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      const uData = userDoc.data();
+      if (uData?.role === 'admin' || uData?.creatorAutopilotStatus === 'ACTIVE' || uData?.entitlements?.CREATOR_AUTOPILOT === 'ACTIVE') {
+        return { active: true, status: 'ACTIVE' };
+      }
+    }
+
+    const profileDoc = await db.collection('creator_autopilot_profiles').doc(userId).get();
+    if (profileDoc.exists) {
+      const pData = profileDoc.data();
+      if (pData?.entitlementStatus === 'ACTIVE') {
+        return { active: true, status: 'ACTIVE' };
+      } else if (pData?.entitlementStatus === 'EXPIRED') {
+        return { active: false, status: 'EXPIRED' };
+      }
+    }
+  } catch (err) {
+    console.warn('Error checking creator entitlement:', err);
+  }
+
+  return { active: false, status: 'LOCKED' };
+}
+
 // Helper: Fail-safe Server Price Calculation
 async function getServerValidatedPrice(): Promise<{ validPrice: number; isFlashSale: boolean }> {
   const DEFAULT_NORMAL_PRICE = 499000;
@@ -166,7 +206,32 @@ const ALLOWED_SHOWCASE_MIMES: Record<string, string> = {
   'video/quicktime': '.mov'
 };
 
+async function syncPaymentConfigFromFirestore() {
+  try {
+    const db = getAdminDb();
+    const docSnap = await db.collection('settings').doc('payment').get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      if (data && (data.bankName || data.accountNumber || (Array.isArray(data.bankAccounts) && data.bankAccounts.length > 0))) {
+        FounderService.updatePaymentConfig({
+          bankName: data.bankName || '',
+          accountNumber: data.accountNumber || '',
+          accountHolder: data.accountHolder || data.namaPemilikBank || '',
+          whatsappNumber: data.whatsappNumber || data.whatsapp || '',
+          bankAccounts: data.bankAccounts || [],
+          updatedAt: data.updatedAt || new Date().toISOString()
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Initial sync payment config from Firestore non-blocking warning:', err);
+  }
+}
+
 async function startServer() {
+  // Sync payment configuration on boot
+  await syncPaymentConfigFromFirestore();
+
   const app = express();
   const PORT = 3000;
 
@@ -186,6 +251,338 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Public and Founder Payment Configuration Endpoints (Persistent SQLite & Firestore backed)
+  app.get("/api/public/payment-config", (req, res) => {
+    const config = FounderService.getPaymentConfig();
+    res.json({
+      success: true,
+      paymentConfig: config,
+      bankAccounts: config.bankAccounts,
+      bankName: config.bankName,
+      accountNumber: config.accountNumber,
+      accountHolder: config.accountHolder,
+      whatsappNumber: config.whatsappNumber,
+      isConfigured: config.isConfigured
+    });
+  });
+
+  app.get("/api/v1/founder/payment", (req, res) => {
+    const config = FounderService.getPaymentConfig();
+    res.json({
+      success: true,
+      paymentConfig: config
+    });
+  });
+
+  app.post("/api/v1/founder/payment", verifyAdminToken, async (req, res) => {
+    try {
+      const { bankName, accountNumber, accountHolder, whatsappNumber, bankAccounts } = req.body;
+      const updated = FounderService.updatePaymentConfig({
+        bankName,
+        accountNumber,
+        accountHolder,
+        whatsappNumber,
+        bankAccounts
+      });
+
+      try {
+        const db = getAdminDb();
+        await db.collection('settings').doc('payment').set({
+          bankName: updated.bankName,
+          accountNumber: updated.accountNumber,
+          accountHolder: updated.accountHolder,
+          whatsappNumber: updated.whatsappNumber,
+          bankAccounts: updated.bankAccounts,
+          updatedAt: updated.updatedAt
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn('Firestore payment setting sync warning:', fsErr);
+      }
+
+      res.json({ success: true, paymentConfig: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update payment settings" });
+    }
+  });
+
+  app.get("/api/payment/settings", (req, res) => {
+    const config = FounderService.getPaymentConfig();
+    res.json({
+      success: true,
+      ...config
+    });
+  });
+
+  app.post("/api/payment/settings", verifyAdminToken, async (req, res) => {
+    try {
+      const { bankName, accountNumber, accountHolder, whatsappNumber, bankAccounts } = req.body;
+      const updated = FounderService.updatePaymentConfig({
+        bankName,
+        accountNumber,
+        accountHolder,
+        whatsappNumber,
+        bankAccounts
+      });
+
+      try {
+        const db = getAdminDb();
+        await db.collection('settings').doc('payment').set({
+          bankName: updated.bankName,
+          accountNumber: updated.accountNumber,
+          accountHolder: updated.accountHolder,
+          whatsappNumber: updated.whatsappNumber,
+          bankAccounts: updated.bankAccounts,
+          updatedAt: updated.updatedAt
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn('Firestore payment setting sync warning:', fsErr);
+      }
+
+      res.json({ success: true, ...updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update payment settings" });
+    }
+  });
+
+  // ==========================================
+  // CREATOR AUTOPILOT & ASTRA ENGINE ENDPOINTS
+  // ==========================================
+
+  // Admin: Get Astra Configuration (Masked API Key)
+  app.get("/api/v1/admin/astra-config", verifyAdminToken, (req, res) => {
+    try {
+      const maskedConfig = FounderService.getMaskedAstraConfig();
+      res.json({ success: true, config: maskedConfig });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to get Astra configuration" });
+    }
+  });
+
+  // Admin: Update Astra Configuration
+  app.post("/api/v1/admin/astra-config", verifyAdminToken, async (req, res) => {
+    try {
+      const { enabled, model, apiKey, maxTokens, monthlyUsageLimit } = req.body;
+      const updated = FounderService.updateAstraConfig({
+        enabled: Boolean(enabled),
+        model: model || 'gpt-6-astra',
+        apiKey: apiKey || '',
+        maxTokens: Number(maxTokens) || 2000,
+        monthlyUsageLimit: Number(monthlyUsageLimit) || 1000,
+      });
+
+      try {
+        const db = getAdminDb();
+        await db.collection('settings').doc('astra').set({
+          enabled: updated.enabled,
+          model: updated.model,
+          maxTokens: updated.maxTokens,
+          monthlyUsageLimit: updated.monthlyUsageLimit,
+          hasApiKey: Boolean(updated.apiKey),
+          updatedAt: updated.updatedAt,
+        }, { merge: true });
+      } catch (e) {
+        console.warn('Sync Astra config to firestore warning:', e);
+      }
+
+      res.json({
+        success: true,
+        message: 'Astra Configuration updated successfully',
+        config: FounderService.getMaskedAstraConfig(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update Astra configuration" });
+    }
+  });
+
+  // Admin: Grant Creator Autopilot Entitlement to User
+  app.post("/api/v1/admin/creator-autopilot/grant-entitlement", verifyAdminToken, async (req, res) => {
+    try {
+      const { targetUserId, status } = req.body;
+      if (!targetUserId) {
+        return res.status(400).json({ error: "Missing targetUserId" });
+      }
+
+      const validStatus = (['ACTIVE', 'LOCKED', 'EXPIRED'].includes(status) ? status : 'ACTIVE');
+      const db = getAdminDb();
+
+      await db.collection('users').doc(targetUserId).set({
+        creatorAutopilotStatus: validStatus,
+        entitlements: {
+          CREATOR_AUTOPILOT: validStatus
+        },
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      await db.collection('creator_autopilot_profiles').doc(targetUserId).set({
+        userId: targetUserId,
+        entitlementStatus: validStatus,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      res.json({ success: true, message: `Entitlement updated to ${validStatus} for user ${targetUserId}` });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update entitlement" });
+    }
+  });
+
+  // Admin: Get Astra Usage Logs
+  app.get("/api/v1/admin/astra-usage", verifyAdminToken, async (req, res) => {
+    try {
+      const db = getAdminDb();
+      const snapshot = await db.collection('astra_usage').orderBy('timestamp', 'desc').limit(100).get();
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json({ success: true, logs });
+    } catch (err: any) {
+      res.json({ success: true, logs: [] });
+    }
+  });
+
+  // User: Check Entitlement Status
+  app.get("/api/v1/creator-autopilot/entitlement", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      res.json({
+        success: true,
+        entitlementStatus: entitlement.status,
+        active: entitlement.active,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to check entitlement" });
+    }
+  });
+
+  // User: Research Content Opportunities via Astra
+  app.post("/api/v1/creator-autopilot/research", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      if (!entitlement.active) {
+        return res.status(403).json({
+          error: "Creator Autopilot adalah fitur Premium. Silakan tingkatkan paket Anda untuk mengakses fitur ini.",
+          code: "ENTITLEMENT_LOCKED"
+        });
+      }
+
+      const { niche, targetAudience, seedTopic, monetizationGoal } = req.body;
+      const opportunities = await AstraService.research({ niche, targetAudience, seedTopic, monetizationGoal }, user.uid);
+
+      // Record Usage Log
+      try {
+        const db = getAdminDb();
+        await db.collection('astra_usage').add({
+          userId: user.uid,
+          userEmail: user.email || '',
+          feature: 'ASTRA_RESEARCH',
+          requestCount: 1,
+          estimatedTokens: 850,
+          timestamp: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Failed to record astra usage:', e);
+      }
+
+      res.json({ success: true, opportunities });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Research request failed" });
+    }
+  });
+
+  // User: Generate Content Plan via Astra
+  app.post("/api/v1/creator-autopilot/content-plan", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      if (!entitlement.active) {
+        return res.status(403).json({
+          error: "Creator Autopilot adalah fitur Premium. Silakan tingkatkan paket Anda.",
+          code: "ENTITLEMENT_LOCKED"
+        });
+      }
+
+      const { opportunity } = req.body;
+      const plan = await AstraService.generateContentPlan(opportunity || {}, user.uid);
+
+      // Record Usage Log
+      try {
+        const db = getAdminDb();
+        await db.collection('astra_usage').add({
+          userId: user.uid,
+          userEmail: user.email || '',
+          feature: 'ASTRA_CONTENT_PLAN',
+          requestCount: 1,
+          estimatedTokens: 950,
+          timestamp: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Failed to record astra usage:', e);
+      }
+
+      res.json({ success: true, plan });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Content plan generation failed" });
+    }
+  });
+
+  // User: Virality Learning Analysis via Astra
+  app.post("/api/v1/creator-autopilot/learning", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      if (!entitlement.active) {
+        return res.status(403).json({ error: "Creator Autopilot adalah fitur Premium.", code: "ENTITLEMENT_LOCKED" });
+      }
+
+      const { history } = req.body;
+      const learning = await AstraService.analyzePerformance(user.uid, history || []);
+      res.json({ success: true, learning });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Learning analysis failed" });
+    }
+  });
+
+  // User: Monetization Intelligence via Astra
+  app.get("/api/v1/creator-autopilot/monetization", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const entitlement = await checkCreatorEntitlement(user.uid, user.email);
+      if (!entitlement.active) {
+        return res.status(403).json({ error: "Creator Autopilot adalah fitur Premium.", code: "ENTITLEMENT_LOCKED" });
+      }
+
+      const db = getAdminDb();
+      const profileDoc = await db.collection('creator_autopilot_profiles').doc(user.uid).get();
+      const profile = profileDoc.exists ? profileDoc.data() : {};
+
+      const data = await AstraService.analyzeMonetization(user.uid, profile);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Monetization analysis failed" });
+    }
+  });
+
+  // User: YouTube Channel Status & Auth URL
+  app.get("/api/v1/creator-autopilot/youtube/auth-url", verifyFirebaseToken, (req, res) => {
+    const user = (req as any).user;
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/v1/creator-autopilot/youtube/callback`;
+    const url = YouTubeService.getAuthUrl(redirectUri, user.uid);
+    res.json({ success: true, authUrl: url, redirectUri });
+  });
+
+  app.get("/api/v1/creator-autopilot/youtube/status", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const db = getAdminDb();
+      const tokenDoc = await db.collection('creator_youtube_tokens').doc(user.uid).get();
+      const tokens = tokenDoc.exists ? tokenDoc.data() : null;
+
+      const channelInfo = await YouTubeService.getChannelInfo(user.uid, tokens);
+      res.json({ success: true, channelInfo });
+    } catch (err: any) {
+      res.json({ success: true, channelInfo: { connected: false } });
+    }
   });
 
   // Protected Payment Price Validation Endpoint (Anti-price manipulation)
@@ -219,17 +616,12 @@ async function startServer() {
       const priceResult = await getServerValidatedPrice();
       const validatedPrice = priceResult.validPrice;
 
-      // 2. Get server payment & whatsapp settings
-      const paymentDoc = await db.collection('settings').doc('payment').get();
-      const whatsappDoc = await db.collection('settings').doc('whatsapp').get();
-
-      const paymentData = paymentDoc.exists ? paymentDoc.data() : {};
-      const whatsappData = whatsappDoc.exists ? whatsappDoc.data() : {};
-
-      const bankName = paymentData?.bankName || 'Bank BCA';
-      const accountNumber = paymentData?.accountNumber || '1234567890';
-      const accountHolder = paymentData?.accountHolder || 'Admin Neurona';
-      const whatsappNumber = paymentData?.whatsappNumber || whatsappData?.phoneNumber || '6281234567890';
+      // 2. Get server payment & whatsapp settings from persistent FounderService / Firestore
+      const paymentConfig = FounderService.getPaymentConfig();
+      const bankName = paymentConfig.bankName || '';
+      const accountNumber = paymentConfig.accountNumber || '';
+      const accountHolder = paymentConfig.accountHolder || '';
+      const whatsappNumber = paymentConfig.whatsappNumber || '';
 
       // 3. Get user profile
       const userDoc = await db.collection('users').doc(userId).get();
@@ -253,19 +645,19 @@ async function startServer() {
           ...existingData,
           id: existingDoc.id,
           amount: validatedPrice,
-          bankName,
-          accountNumber,
-          accountHolder,
-          whatsappNumber,
+          bankName: bankName || existingData.bankName || '',
+          accountNumber: accountNumber || existingData.accountNumber || '',
+          accountHolder: accountHolder || existingData.accountHolder || '',
+          whatsappNumber: whatsappNumber || existingData.whatsappNumber || '',
           updatedAt: new Date().toISOString()
         };
 
         await existingDoc.ref.update({
           amount: validatedPrice,
-          bankName,
-          accountNumber,
-          accountHolder,
-          whatsappNumber,
+          bankName: invoiceData.bankName,
+          accountNumber: invoiceData.accountNumber,
+          accountHolder: invoiceData.accountHolder,
+          whatsappNumber: invoiceData.whatsappNumber,
           updatedAt: new Date().toISOString()
         });
       } else {
@@ -306,20 +698,16 @@ async function startServer() {
     try {
       const user = (req as any).user;
       const userId = user.uid;
-      const db = getFirestore();
+      const db = getAdminDb();
 
       const priceResult = await getServerValidatedPrice();
       const validatedPrice = priceResult.validPrice;
 
-      const paymentDoc = await db.collection('settings').doc('payment').get();
-      const whatsappDoc = await db.collection('settings').doc('whatsapp').get();
-      const paymentData = paymentDoc.exists ? paymentDoc.data() : {};
-      const whatsappData = whatsappDoc.exists ? whatsappDoc.data() : {};
-
-      const bankName = paymentData?.bankName || 'Bank BCA';
-      const accountNumber = paymentData?.accountNumber || '1234567890';
-      const accountHolder = paymentData?.accountHolder || 'Admin Neurona';
-      const whatsappNumber = paymentData?.whatsappNumber || whatsappData?.phoneNumber || '6281234567890';
+      const paymentConfig = FounderService.getPaymentConfig();
+      const currentBankName = paymentConfig.bankName || '';
+      const currentAccountNumber = paymentConfig.accountNumber || '';
+      const currentAccountHolder = paymentConfig.accountHolder || '';
+      const currentWhatsappNumber = paymentConfig.whatsappNumber || '';
 
       const invoicesRef = db.collection('invoices');
       const existingSnap = await invoicesRef.where('userId', '==', userId).orderBy('createdAt', 'desc').limit(1).get();
@@ -335,10 +723,10 @@ async function startServer() {
         ...data,
         id: docSnap.id,
         amount: validatedPrice,
-        bankName,
-        accountNumber,
-        accountHolder,
-        whatsappNumber
+        bankName: currentBankName || data.bankName || '',
+        accountNumber: currentAccountNumber || data.accountNumber || '',
+        accountHolder: currentAccountHolder || data.accountHolder || '',
+        whatsappNumber: currentWhatsappNumber || data.whatsappNumber || ''
       };
 
       res.json({ invoice: updatedInvoice });
@@ -448,7 +836,7 @@ async function startServer() {
 
       const priceResult = await getServerValidatedPrice();
       const serverProductPrice = priceResult.validPrice;
-      const db = getFirestore();
+      const db = getAdminDb();
 
       // Fixed Server Commission Rate: 40%
       const serverCommissionRate = 40;
