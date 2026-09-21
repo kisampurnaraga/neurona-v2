@@ -72,12 +72,27 @@ service cloud.firestore {
 
     // Settings Collection rules
     match /settings/{settingId} {
-      // Anyone can read whatsapp and price settings (for landing page & countdowns)
+      // Anyone can read whatsapp, price, and payment settings (for landing page, invoice & countdowns)
       // Authenticated users can read payment settings & aistudio settings
-      allow read: if (settingId == 'whatsapp' || settingId == 'price') || isSignedIn();
+      allow read: if (settingId == 'whatsapp' || settingId == 'price' || settingId == 'payment') || isSignedIn();
 
       // Only Admins can modify settings.
       allow write: if isAdmin();
+    }
+
+    // Invoices Collection rules
+    match /invoices/{invoiceId} {
+      // Users can read their own invoices; Admins can read all
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Direct client creation is STRICTLY DENIED (creation MUST go through server endpoint)
+      allow create: if false;
+
+      // Only admins can update (verify/reject)
+      allow update: if isAdmin();
+
+      // Only admins can delete
+      allow delete: if isAdmin();
     }
 
     // Showcases Collection rules

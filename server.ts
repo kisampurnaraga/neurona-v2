@@ -167,6 +167,146 @@ async function startServer() {
     }
   });
 
+  // Protected Payment Invoice Creation Endpoint (Anti-manipulation server-validated invoice)
+  app.post("/api/payment/create-invoice", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userId = user.uid;
+      const db = getFirestore();
+
+      // 1. Get server validated price
+      const priceResult = await getServerValidatedPrice();
+      const validatedPrice = priceResult.validPrice;
+
+      // 2. Get server payment & whatsapp settings
+      const paymentDoc = await db.collection('settings').doc('payment').get();
+      const whatsappDoc = await db.collection('settings').doc('whatsapp').get();
+
+      const paymentData = paymentDoc.exists ? paymentDoc.data() : {};
+      const whatsappData = whatsappDoc.exists ? whatsappDoc.data() : {};
+
+      const bankName = paymentData?.bankName || 'Bank BCA';
+      const accountNumber = paymentData?.accountNumber || '1234567890';
+      const accountHolder = paymentData?.accountHolder || 'Admin Neurona';
+      const whatsappNumber = paymentData?.whatsappNumber || whatsappData?.phoneNumber || '6281234567890';
+
+      // 3. Get user profile
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userData = userDoc.exists ? userDoc.data() : {};
+
+      const userName = userData?.namaLengkap || user.name || 'Pendaftar Neurona';
+      const userEmail = userData?.email || user.email || '';
+      const userWhatsapp = userData?.whatsapp || '';
+
+      // 4. Query existing PENDING invoice or create new
+      const invoicesRef = db.collection('invoices');
+      const existingSnap = await invoicesRef.where('userId', '==', userId).where('status', '==', 'PENDING').get();
+
+      let invoiceData: any;
+
+      if (!existingSnap.empty) {
+        const existingDoc = existingSnap.docs[0];
+        const existingData = existingDoc.data();
+
+        invoiceData = {
+          ...existingData,
+          id: existingDoc.id,
+          amount: validatedPrice,
+          bankName,
+          accountNumber,
+          accountHolder,
+          whatsappNumber,
+          updatedAt: new Date().toISOString()
+        };
+
+        await existingDoc.ref.update({
+          amount: validatedPrice,
+          bankName,
+          accountNumber,
+          accountHolder,
+          whatsappNumber,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        const timestamp = Date.now();
+        const randomHash = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const invoiceNumber = `INV-NEURONA-${timestamp}-${randomHash}`;
+        const newDocRef = invoicesRef.doc();
+
+        invoiceData = {
+          id: newDocRef.id,
+          invoiceNumber,
+          userId,
+          userName,
+          userEmail,
+          userWhatsapp,
+          amount: validatedPrice,
+          bankName,
+          accountNumber,
+          accountHolder,
+          whatsappNumber,
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await newDocRef.set(invoiceData);
+      }
+
+      res.json({ success: true, invoice: invoiceData });
+    } catch (err: any) {
+      console.error('Error creating invoice:', err);
+      res.status(500).json({ error: err.message || "Failed to create invoice" });
+    }
+  });
+
+  // Protected Fetch My Active Invoice Endpoint
+  app.get("/api/payment/my-invoice", verifyFirebaseToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const userId = user.uid;
+      const db = getFirestore();
+
+      const priceResult = await getServerValidatedPrice();
+      const validatedPrice = priceResult.validPrice;
+
+      const paymentDoc = await db.collection('settings').doc('payment').get();
+      const whatsappDoc = await db.collection('settings').doc('whatsapp').get();
+      const paymentData = paymentDoc.exists ? paymentDoc.data() : {};
+      const whatsappData = whatsappDoc.exists ? whatsappDoc.data() : {};
+
+      const bankName = paymentData?.bankName || 'Bank BCA';
+      const accountNumber = paymentData?.accountNumber || '1234567890';
+      const accountHolder = paymentData?.accountHolder || 'Admin Neurona';
+      const whatsappNumber = paymentData?.whatsappNumber || whatsappData?.phoneNumber || '6281234567890';
+
+      const invoicesRef = db.collection('invoices');
+      const existingSnap = await invoicesRef.where('userId', '==', userId).orderBy('createdAt', 'desc').limit(1).get();
+
+      if (existingSnap.empty) {
+        return res.json({ invoice: null });
+      }
+
+      const docSnap = existingSnap.docs[0];
+      const data = docSnap.data();
+
+      const updatedInvoice = {
+        ...data,
+        id: docSnap.id,
+        amount: validatedPrice,
+        bankName,
+        accountNumber,
+        accountHolder,
+        whatsappNumber
+      };
+
+      res.json({ invoice: updatedInvoice });
+    } catch (err: any) {
+      console.error('Error fetching my invoice:', err);
+      res.status(500).json({ error: err.message || "Failed to fetch invoice" });
+    }
+  });
+
   // Protected Showcase File Upload Endpoint (Firebase Admin Storage production upload)
   app.post("/api/upload-showcase", verifyAdminToken, async (req, res) => {
     try {

@@ -51,6 +51,25 @@ export interface PaymentSetting {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  whatsappNumber?: string;
+}
+
+export interface InvoiceRecord {
+  id: string;
+  invoiceNumber: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userWhatsapp: string;
+  amount: number;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  whatsappNumber: string;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  createdAt: string;
+  updatedAt?: string;
+  verifiedAt?: string;
 }
 
 export interface PriceSetting {

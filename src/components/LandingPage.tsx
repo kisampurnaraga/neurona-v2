@@ -36,16 +36,20 @@ import {
 } from 'lucide-react';
 import { ShowcaseGallery } from './ShowcaseGallery';
 import { PromoCountdown } from './PromoCountdown';
+import { PaymentSetting } from '../types';
 
 interface LandingPageProps {
   onRegisterClick: () => void;
   onLoginClick: () => void;
   whatsappNumber: string;
+  paymentSettings?: PaymentSetting;
   priceSetting?: {
     normalPrice?: number;
     promoPrice?: number;
     flashSaleHours?: number;
     flashSaleMinutes?: number;
+    flashSaleEnabled?: boolean;
+    endTime?: string;
   };
 }
 
@@ -53,6 +57,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onRegisterClick,
   onLoginClick,
   whatsappNumber,
+  paymentSettings,
   priceSetting
 }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -1004,9 +1009,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 font-black text-lg flex items-center justify-center mb-4 shadow-md">
                 2
               </div>
-              <h3 className="font-bold text-amber-300 text-base mb-2">Transfer Rp 99.000</h3>
+              <h3 className="font-bold text-amber-300 text-base mb-2">Transfer Rp {displayPrice.toLocaleString('id-ID')}</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Lakukan transfer promo Rp 99.000 ke rekening bank resmi yang tertera di halaman instruksi.
+                Lakukan transfer Rp {displayPrice.toLocaleString('id-ID')} ke {paymentSettings?.bankName || 'rekening resmi'} {paymentSettings?.accountNumber ? `(${paymentSettings.accountNumber})` : ''} yang tertera di faktur pembayaran.
               </p>
             </div>
 
