@@ -49,68 +49,40 @@ export const CreatorAutopilotModule: React.FC<CreatorAutopilotModuleProps> = ({
 
   // Data States
   const [channelInfo, setChannelInfo] = useState<YouTubeChannelInfo>({
-    title: 'Shorts Growth Channel',
-    subscriberCount: 320,
-    viewCount: 125000,
-    videoCount: 18,
+    title: '',
+    subscriberCount: 0,
+    viewCount: 0,
+    videoCount: 0,
     connected: false
   });
 
-  const [opportunities, setOpportunities] = useState<ContentOpportunity[]>([
-    {
-      id: 'opp-1',
-      topic: '3 Tool AI Gratis Untuk Edit Shorts Otomatis Tanpa Watermark',
-      niche: 'Digital Product & AI Tools',
-      targetAudience: 'Kreator Shorts & Pejuang Monetisasi',
-      hook: 'Hentikan edit video manual! Ini 3 Tool AI rahasia yang bikin Shorts kamu siap tayang dalam 3 menit...',
-      angle: 'Efficiency & Problem Solving',
-      contentFormat: 'AI Voiceover + Visual Demo',
-      priority: 'HIGH',
-      estimatedOpportunity: 'High Virality Potential (Astra Index: 94/100)',
-      monetizationAngle: 'Affiliate Link Tool AI di Bio (Komisi ~Rp 150rb per convert)',
-      source: 'Astra Trend Radar'
-    },
-    {
-      id: 'opp-2',
-      topic: 'Rahasia Trik Reusable Content Yang Lolos Monetisasi 100%',
-      niche: 'Monetisasi YouTube Shorts',
-      targetAudience: 'Kreator Reupload & Curated Content',
-      hook: '90% Kreator Gagal Monetisasi Karena 1 Kesalahan Kecil Ini...',
-      angle: 'Loss Aversion & Curiosity',
-      contentFormat: 'Talking Head + Screen Capture',
-      priority: 'HIGH',
-      estimatedOpportunity: 'High Search Intent',
-      monetizationAngle: 'E-Book Panduan Reupload Aman (Rp 99.000)',
-      source: 'Astra Competitor Intelligence'
-    }
-  ]);
-
-  const [plans, setPlans] = useState<ContentPlan[]>([
-    {
-      id: 'plan-1',
-      opportunityId: 'opp-1',
-      title: '3 Tool AI Gratis Untuk Edit Shorts Otomatis Tanpa Watermark',
-      hook0to3s: 'Hentikan edit video manual! Ini 3 Tool AI rahasia yang bikin Shorts kamu siap tayang dalam 3 menit...',
-      scriptDirection: '0-3s: Hook visual menakjubkan memperlihatkan layar edit otomatis.\n3-15s: Tampilkan Tool #1 (CapCut AI Script to Video) dengan demo singkat.\n15-30s: Tampilkan Tool #2 & #3 (ElevenLabs + Canva AI).\n30-40s: Rangkuman & ajakan klik link bio.',
-      cta: 'Klik link di bio untuk coba ketiga tool gratis ini sekarang!',
-      description: '3 Tool AI Gratis untuk buat YouTube Shorts otomatis tanpa watermark. Tonton sampai habis untuk trik rahasia!',
-      hashtags: ['#ShortsAI', '#AITools', '#MonetisasiShorts', '#TutorialAI'],
-      contentAngle: 'Efficiency & Problem Solving',
-      storyboardBrief: 'Visual: Screen capture cepat 3 tool AI. Voiceover: Energik, percaya diri, tempo cepat. Teks layar: Kontras tinggi kuning/putih.',
-      productionInstructions: 'Gunakan subtitle otomatis warna kuning-hitam di tengah layar. Durasi ideal: 38-42 detik.',
-      status: 'PLANNED',
-      createdAt: new Date().toISOString()
-    }
-  ]);
-
-  const [selectedPlan, setSelectedPlan] = useState<ContentPlan | null>(plans[0] || null);
+  const [opportunities, setOpportunities] = useState<ContentOpportunity[]>([]);
+  const [plans, setPlans] = useState<ContentPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<ContentPlan | null>(null);
   const [monetization, setMonetization] = useState<MonetizationIntelligenceData | null>(null);
   const [learning, setLearning] = useState<LearningPattern | null>(null);
   const [loadingLearning, setLoadingLearning] = useState(false);
 
   useEffect(() => {
     checkEntitlement();
+    fetchChannelInfo();
   }, []);
+
+  const fetchChannelInfo = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await fetch('/api/v1/creator-autopilot/channel', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.channel) {
+        setChannelInfo(data.channel);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch channel info:', err);
+    }
+  };
 
   const checkEntitlement = async () => {
     try {

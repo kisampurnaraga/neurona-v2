@@ -9,29 +9,11 @@ interface LearningTabProps {
 }
 
 export const LearningTab: React.FC<LearningTabProps> = ({ learning, onRefreshLearning, loading }) => {
-  const defaultLearning: LearningPattern = learning || {
-    winningPatterns: [
-      'Hook dengan ekspresi problem-solving ("Jangan Beli...") menghasilkan retention +34%.',
-      'Penggunaan visual B-Roll berubah setiap 2 detik menaikkan Completion Rate hingga 72%.',
-      'Shorts dengan durasi ideal 35-42 detik mencatatkan conversion rate affiliate tertinggi.'
-    ],
-    weakPatterns: [
-      'Intro terlalu panjang (>4 detik) tanpa teks besar di layar menyebabkan drop-off awal 45%.',
-      'CTA ditaruh di pertengahan video menurunkan ketertarikan penonton.'
-    ],
-    recommendedNextTopics: [
-      '3 Tool AI Gratis Untuk Otomatisasi Shorts',
-      'Cara Membaca Algoritma YouTube Shorts Terbaru 2026',
-      'Studi Kasus Cuan Dari Affiliate Shorts Tanpa Wajah'
-    ],
-    recommendedHooks: [
-      'Bukan Hoki! Ini Rahasia Algoritma YouTube Shorts Terbaru...',
-      'Gara-Gara 1 Trik Ini, Viewers Channel Saya Naik 5x Lipat!',
-      'Hentikan Edit Shorts Manual Kalau Belum Tahu Tool Ini...'
-    ],
-    recommendedPublishingStrategy: 'Jadwal Upload Optimal: 12:00 WIB & 18:30 WIB (Selasa - Jumat). Konsistensi: 1-2 Shorts per hari.',
-    updatedAt: new Date().toISOString()
-  };
+  const hasData = learning && (
+    (learning.winningPatterns && learning.winningPatterns.length > 0) ||
+    (learning.weakPatterns && learning.weakPatterns.length > 0) ||
+    (learning.recommendedNextTopics && learning.recommendedNextTopics.length > 0)
+  );
 
   return (
     <div className="space-y-6">
@@ -70,72 +52,86 @@ export const LearningTab: React.FC<LearningTabProps> = ({ learning, onRefreshLea
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Winning Patterns */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
-          <h3 className="text-base font-bold text-emerald-400 flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            Winning Patterns (Pola Berhasil)
-          </h3>
-          <ul className="space-y-2.5 text-xs text-slate-200">
-            {defaultLearning.winningPatterns.map((pat, idx) => (
-              <li key={idx} className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-800/30 flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold shrink-0 text-[10px] mt-0.5">{idx + 1}</span>
-                <span>{pat}</span>
-              </li>
-            ))}
-          </ul>
+      {!hasData ? (
+        <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-8 text-center space-y-3">
+          <BrainCircuit className="w-10 h-10 text-slate-600 mx-auto" />
+          <h3 className="text-sm font-semibold text-slate-300">Belum Cukup Data Historis untuk Analisis Virality</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            {learning?.recommendedPublishingStrategy || 'Publikasikan Shorts pertama Anda di YouTube untuk membuka otomatisasi siklus Virality Learning Loop.'}
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Winning Patterns */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+              <h3 className="text-base font-bold text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                Winning Patterns (Pola Berhasil)
+              </h3>
+              <ul className="space-y-2.5 text-xs text-slate-200">
+                {(learning.winningPatterns || []).map((pat, idx) => (
+                  <li key={idx} className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-800/30 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold shrink-0 text-[10px] mt-0.5">{idx + 1}</span>
+                    <span>{pat}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-        {/* Weak Patterns */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
-          <h3 className="text-base font-bold text-rose-400 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-rose-400" />
-            Weak Patterns (Pola Perlu Dihindari)
-          </h3>
-          <ul className="space-y-2.5 text-xs text-slate-200">
-            {defaultLearning.weakPatterns.map((pat, idx) => (
-              <li key={idx} className="p-3 rounded-xl bg-rose-950/20 border border-rose-800/30 flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold shrink-0 text-[10px] mt-0.5">{idx + 1}</span>
-                <span>{pat}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Recommended Strategy */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-amber-400" />
-          Rekomendasi Strategi Konten Selanjutnya
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2">
-            <div className="font-bold text-purple-300 uppercase tracking-wider">Rekomendasi Topik Selanjutnya:</div>
-            <ul className="list-disc list-inside space-y-1 text-slate-300">
-              {defaultLearning.recommendedNextTopics.map((top, i) => (
-                <li key={i}>{top}</li>
-              ))}
-            </ul>
+            {/* Weak Patterns */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+              <h3 className="text-base font-bold text-rose-400 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+                Weak Patterns (Pola Perlu Dihindari)
+              </h3>
+              <ul className="space-y-2.5 text-xs text-slate-200">
+                {(learning.weakPatterns || []).map((pat, idx) => (
+                  <li key={idx} className="p-3 rounded-xl bg-rose-950/20 border border-rose-800/30 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold shrink-0 text-[10px] mt-0.5">{idx + 1}</span>
+                    <span>{pat}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2">
-            <div className="font-bold text-indigo-300 uppercase tracking-wider">Rekomendasi Formula Hook:</div>
-            <ul className="list-disc list-inside space-y-1 text-slate-300">
-              {defaultLearning.recommendedHooks.map((hk, i) => (
-                <li key={i}>"{hk}"</li>
-              ))}
-            </ul>
-          </div>
-        </div>
+          {/* Recommended Strategy */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-400" />
+              Rekomendasi Strategi Konten Selanjutnya
+            </h3>
 
-        <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-800/40 text-xs text-purple-200">
-          <span className="font-bold text-white">Strategi Jadwal Upload: </span>
-          {defaultLearning.recommendedPublishingStrategy}
-        </div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2">
+                <div className="font-bold text-purple-300 uppercase tracking-wider">Rekomendasi Topik Selanjutnya:</div>
+                <ul className="list-disc list-inside space-y-1 text-slate-300">
+                  {(learning.recommendedNextTopics || []).map((top, i) => (
+                    <li key={i}>{top}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2">
+                <div className="font-bold text-indigo-300 uppercase tracking-wider">Rekomendasi Formula Hook:</div>
+                <ul className="list-disc list-inside space-y-1 text-slate-300">
+                  {(learning.recommendedHooks || []).map((hk, i) => (
+                    <li key={i}>"{hk}"</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {learning.recommendedPublishingStrategy && (
+              <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-800/40 text-xs text-purple-200">
+                <span className="font-bold text-white">Strategi Jadwal Upload: </span>
+                {learning.recommendedPublishingStrategy}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };

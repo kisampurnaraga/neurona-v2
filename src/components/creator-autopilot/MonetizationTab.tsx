@@ -9,11 +9,11 @@ interface MonetizationTabProps {
 export const MonetizationTab: React.FC<MonetizationTabProps> = ({ monetization }) => {
   const data = monetization || {
     youtubePartnerProgress: {
-      subscriberCount: 320,
+      subscriberCount: 0,
       subscriberTarget: 1000,
-      shortsViews: 125000,
+      shortsViews: 0,
       shortsViewsTarget: 10000000,
-      watchHours: 1500,
+      watchHours: 0,
       watchHoursTarget: 4000,
       isEligible: false
     },
@@ -21,27 +21,21 @@ export const MonetizationTab: React.FC<MonetizationTabProps> = ({ monetization }
       {
         title: 'NEURONA AI Studio Affiliate Program',
         category: 'Digital Product & SaaS',
-        estimatedCommission: 'Komisi 40% (Rp 39.600 - Rp 199.600 per penjualan)',
-        fitScore: '98% Sangat Cocok'
-      },
-      {
-        title: 'E-Book Panduan Shorts AI Auto-Pilot',
-        category: 'E-Learning',
-        estimatedCommission: 'Komisi 50% per pendaftaran',
-        fitScore: '92% High Match'
+        estimatedCommission: 'Komisi 40% per penjualan',
+        fitScore: 'Program Resmi NEURONA'
       }
     ],
     sponsorshipOpportunities: [
       {
         brandCategory: 'Aplikasi AI & Productivity Tools',
-        recommendedRate: 'Rp 500.000 - Rp 1.500.000 per Dedicated Shorts',
+        recommendedRate: 'Hubungkan Channel YouTube untuk Estimasi Rate',
         pitchAngle: 'Demonstrasi workflow produktivitas instan dengan fitur nyata'
       }
     ],
     digitalProductIdeas: [
       {
         productType: 'Digital Template',
-        title: '50+ Template Prompt YouTube Shorts High-Engagement',
+        title: 'Template Prompt YouTube Shorts High-Engagement',
         targetPrice: 'Rp 49.000'
       }
     ]
